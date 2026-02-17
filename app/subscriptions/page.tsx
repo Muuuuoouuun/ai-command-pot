@@ -1,0 +1,28 @@
+import Link from 'next/link';
+import { SectionTitle } from '@/components/section-title';
+import { getSubscriptions } from '@/lib/data';
+import { formatCurrency } from '@/lib/utils';
+import { SubscriptionList } from '@/components/subscription-list';
+
+export default async function SubscriptionsPage({ searchParams }: { searchParams?: { sort?: string } }) {
+  let subscriptions: any[] = [];
+  try { subscriptions = await getSubscriptions(); } catch {}
+
+  const active = subscriptions.filter((s) => s.status === 'active').length;
+  const total = subscriptions.reduce((sum, s) => sum + Number(s.monthly_cost || 0), 0);
+  const sort = searchParams?.sort ?? 'renewal';
+
+  return (
+    <div className="space-y-4">
+      <SectionTitle title="Subscriptions" subtitle="비용, 갱신, 중복 구독을 한 눈에 관리" />
+      <div className="paper-card grid grid-cols-2 gap-2 p-4 text-sm"><p>Total monthly: <strong>{formatCurrency(total)}</strong></p><p>Active: <strong>{active}</strong></p></div>
+      <div className="flex gap-2 text-xs">
+        <Link href="/subscriptions?sort=renewal" className={`rounded-full border px-3 py-1 ${sort === 'renewal' ? 'bg-ink text-paper' : 'border-line'}`}>Renewal soon</Link>
+        <Link href="/subscriptions?sort=cost" className={`rounded-full border px-3 py-1 ${sort === 'cost' ? 'bg-ink text-paper' : 'border-line'}`}>Cost high</Link>
+        <Link href="/subscriptions?sort=az" className={`rounded-full border px-3 py-1 ${sort === 'az' ? 'bg-ink text-paper' : 'border-line'}`}>A-Z</Link>
+      </div>
+      <Link href="/subscriptions/new" className="paper-card block p-3 text-center text-sm">+ New Subscription</Link>
+      <SubscriptionList subscriptions={subscriptions} sort={sort} />
+    </div>
+  )
+}
