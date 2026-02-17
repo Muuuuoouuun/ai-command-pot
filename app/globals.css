@@ -1,0 +1,22 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root { color-scheme: light; }
+body {
+  @apply bg-paper text-ink font-sans;
+  background-image:
+    radial-gradient(circle at 20% 20%, rgba(255,255,255,0.35), transparent 35%),
+    radial-gradient(circle at 80% 0%, rgba(255,255,255,0.2), transparent 25%),
+    repeating-radial-gradient(circle at 0 0, rgba(47,42,36,0.02) 0px, rgba(47,42,36,0.02) 1px, transparent 2px, transparent 4px);
+}
+
+.paper-card {
+  @apply rounded-2xl border border-line bg-[#faf6ee]/90 shadow-soft;
+}
+
+.section-divider {
+  border-top: 1px solid #dfd4c1;
+  background: repeating-linear-gradient(to right, #dfd4c1 0 12px, transparent 12px 16px);
+  height: 2px;
+}
