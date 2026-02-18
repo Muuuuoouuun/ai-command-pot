@@ -123,3 +123,36 @@ create policy "owner access agents" on agents for all using (owner_id = auth.uid
 create policy "owner access triggers" on triggers for all using (owner_id = auth.uid()) with check (owner_id = auth.uid());
 create policy "owner access runs" on runs for all using (owner_id = auth.uid()) with check (owner_id = auth.uid());
 create policy "owner access audit" on audit_logs for all using (owner_id = auth.uid()) with check (owner_id = auth.uid());
+
+create table if not exists memos (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null,
+  content text not null,
+  is_processed boolean default false,
+  created_at timestamptz default now()
+);
+
+create table if not exists automations (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null,
+  name text not null,
+  description text,
+  platform text not null, -- 'n8n', 'make'
+  trigger_type text, -- 'webhook', 'schedule', 'event'
+  is_active boolean default true,
+  last_run_at timestamptz,
+  success_rate numeric(5,2) default 100.0,
+  config jsonb default '{}'::jsonb,
+  created_at timestamptz default now()
+);
+
+-- Separate Policies for New Tables
+create policy "owner access memos" on memos for all using (owner_id = auth.uid()) with check (owner_id = auth.uid());
+create policy "owner access automations" on automations for all using (owner_id = auth.uid()) with check (owner_id = auth.uid());
+
+alter table memos enable row level security;
+alter table automations enable row level security;
+
+-- New Indexes
+create index if not exists idx_memos_owner_created on memos(owner_id, created_at desc);
+create index if not exists idx_automations_owner_platform on automations(owner_id, platform);

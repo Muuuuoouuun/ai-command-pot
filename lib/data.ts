@@ -30,13 +30,36 @@ export async function getVaultKeys() {
   return data ?? [];
 }
 
+export async function getMemos(limit = 50) {
+  const sb = supabaseServer();
+  const { data, error } = await sb.from('memos').select('*').eq('owner_id', owner).order('created_at', { ascending: false }).limit(limit);
+  if (error) {
+    // If table doesn't exist yet (migration pending), return empty
+    if (error.code === '42P01') return [];
+    throw error;
+  }
+  return data ?? [];
+}
+
+export async function getAutomations() {
+  const sb = supabaseServer();
+  const { data, error } = await sb.from('automations').select('*').eq('owner_id', owner).order('platform', { ascending: true });
+  if (error) {
+    if (error.code === '42P01') return [];
+    throw error;
+  }
+  return data ?? [];
+}
+
 export async function getDashboardConnection() {
   try {
-    const [subscriptions, agents, runs, keys] = await Promise.all([
+    const [subscriptions, agents, runs, keys, memos, automations] = await Promise.all([
       getSubscriptions(),
       getAgents(),
       getRuns(1),
-      getVaultKeys()
+      getVaultKeys(),
+      getMemos(),
+      getAutomations()
     ]);
 
     return {
@@ -45,14 +68,16 @@ export async function getDashboardConnection() {
         subscriptions: subscriptions.length,
         agents: agents.length,
         runs: runs.length,
-        keys: keys.length
+        keys: keys.length,
+        memos: memos.length,
+        automations: automations.length
       },
       latestRunAt: runs[0]?.started_at ?? null
     };
   } catch {
     return {
       connected: false,
-      counts: { subscriptions: 0, agents: 0, runs: 0, keys: 0 },
+      counts: { subscriptions: 0, agents: 0, runs: 0, keys: 0, memos: 0, automations: 0 },
       latestRunAt: null
     };
   }
