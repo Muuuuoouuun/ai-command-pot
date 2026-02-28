@@ -22,6 +22,19 @@ export async function createMemo(content: string) {
     return { success: true };
 }
 
+export async function deleteMemo(id: string) {
+    const sb = supabaseServer();
+    const { error } = await sb.from('memos').delete().eq('id', id).eq('owner_id', owner);
+
+    if (error) {
+        console.error('Delete memo error:', error);
+        throw new Error('Failed to delete memo');
+    }
+
+    revalidatePath('/notifications');
+    return { success: true };
+}
+
 export async function toggleAutomation(id: string, isActive: boolean) {
     const sb = supabaseServer();
     const { error } = await sb.from('automations').update({ is_active: isActive }).eq('id', id).eq('owner_id', owner);
