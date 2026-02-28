@@ -1,15 +1,24 @@
-import { getMemos } from '@/lib/data';
+import { getMemos, getRuns, getWeeklyStats } from '@/lib/data';
 import { MemoInput } from '@/components/memo-input';
 import { MemoTimeline } from '@/components/memo-timeline';
-// Removed WeeklySummary for now or I can reuse the previous code if I have it.
-// I will create WeeklySummary component as well.
 import WeeklySummary from '@/components/weekly-summary';
 import { SectionTitle } from '@/components/section-title';
-import { getRuns } from '@/lib/data';
+
+export const dynamic = 'force-dynamic';
+
+const defaultStats: { totalRuns: number; healthPct: number; topAgentName: string | null; pendingMemos: number; monthlyCost: number } = {
+    totalRuns: 0, healthPct: 100, topAgentName: null, pendingMemos: 0, monthlyCost: 0
+};
 
 export default async function NotificationsPage() {
-    const memos = await getMemos(20);
-    const failedRuns = (await getRuns(50)).filter((r: any) => r.status === 'failed');
+    let memos: unknown[] = [], failedRuns: unknown[] = [];
+    let weeklyStats = defaultStats;
+    try {
+        const [m, allRuns, ws] = await Promise.all([getMemos(20), getRuns(50), getWeeklyStats()]);
+        memos = m;
+        failedRuns = (allRuns as { status: string }[]).filter((r) => r.status === 'failed');
+        weeklyStats = ws;
+    } catch {}
 
     return (
         <div className="space-y-8">
@@ -18,7 +27,7 @@ export default async function NotificationsPage() {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 {/* Left Column: Memos & Weekly Report (7 cols) */}
                 <div className="lg:col-span-7 space-y-8">
-                    <WeeklySummary />
+                    <WeeklySummary stats={weeklyStats} />
 
                     <section>
                         <h3 className="flex items-center gap-2 font-serif text-lg font-semibold mb-3">
@@ -37,7 +46,7 @@ export default async function NotificationsPage() {
                         <h3 className="font-serif text-lg font-semibold mb-3">Alerts</h3>
                         {failedRuns.length > 0 ? (
                             <div className="space-y-3">
-                                {failedRuns.slice(0, 5).map((run: any) => (
+                                {(failedRuns as { id: string; agents?: { name?: string }; started_at: string }[]).slice(0, 5).map((run) => (
                                     <div key={run.id} className="bg-red-50 border border-red-100 p-4 rounded-xl flex gap-3 text-sm">
                                         <div className="text-red-600 font-bold">!</div>
                                         <div>

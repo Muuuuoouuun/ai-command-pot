@@ -3,3 +3,7 @@ export const formatCurrency = (value: number, currency = 'USD') =>
 
 export const formatDate = (value?: string | null) =>
   value ? new Date(value).toLocaleDateString() : '—';
+
+export function cn(...classes: (string | undefined | null | false)[]) {
+  return classes.filter(Boolean).join(' ');
+}
