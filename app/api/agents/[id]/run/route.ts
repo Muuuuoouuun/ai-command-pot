@@ -27,6 +27,32 @@ async function executeRun(agent: any, input: unknown): Promise<RunnerResult> {
   }
 
   if (agent.runner_type === 'llm_call') {
+    const provider: string = agent.config?.provider ?? 'openai';
+
+    if (provider === 'anthropic') {
+      const key = process.env.ANTHROPIC_API_KEY;
+      if (!key) {
+        return { status: 'success', output: { mock: `Mock response for ${agent.name}`, input }, error: null };
+      }
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-api-key': key, 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify({
+          model: agent.config?.model ?? 'claude-3-5-haiku-20241022',
+          max_tokens: agent.config?.max_tokens ?? 1024,
+          system: agent.config?.system_prompt ?? 'You are a helpful AI assistant.',
+          messages: [{ role: 'user', content: typeof input === 'string' ? input : JSON.stringify(input) }]
+        })
+      });
+      const json = await response.json();
+      return {
+        status: response.ok ? 'success' : 'failed',
+        output: response.ok ? { text: json.content?.[0]?.text, raw: json } : json,
+        error: response.ok ? null : JSON.stringify(json)
+      };
+    }
+
+    // Default: OpenAI
     const key = process.env.OPENAI_API_KEY;
     if (!key) {
       return { status: 'success', output: { mock: `Mock response for ${agent.name}`, input }, error: null };
@@ -35,7 +61,7 @@ async function executeRun(agent: any, input: unknown): Promise<RunnerResult> {
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
-      body: JSON.stringify({ model: 'gpt-4o-mini', messages: [{ role: 'user', content: JSON.stringify(input) }] })
+      body: JSON.stringify({ model: agent.config?.model ?? 'gpt-4o-mini', messages: [{ role: 'user', content: JSON.stringify(input) }] })
     });
 
     const json = await response.json();
