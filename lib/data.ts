@@ -83,4 +83,46 @@ export async function getDashboardConnection() {
   }
 }
 
+export async function getWeeklyStats() {
+  const sb = supabaseServer();
+  const weekAgo = new Date();
+  weekAgo.setDate(weekAgo.getDate() - 7);
+  const weekAgoISO = weekAgo.toISOString();
+
+  const [runsRes, memosRes, subsRes] = await Promise.allSettled([
+    sb.from('runs').select('status, agent_id, agents(name)').eq('owner_id', owner).gte('started_at', weekAgoISO),
+    sb.from('memos').select('id').eq('owner_id', owner).eq('is_processed', false),
+    sb.from('subscriptions').select('monthly_cost').eq('owner_id', owner).eq('status', 'active')
+  ]);
+
+  const runs = runsRes.status === 'fulfilled' ? (runsRes.value.data ?? []) : [];
+  const memos = memosRes.status === 'fulfilled' ? (memosRes.value.data ?? []) : [];
+  const subs = subsRes.status === 'fulfilled' ? (subsRes.value.data ?? []) : [];
+
+  const totalRuns = runs.length;
+  const successRuns = runs.filter((r: any) => r.status === 'success').length;
+  const healthPct = totalRuns > 0 ? Math.round((successRuns / totalRuns) * 100) : 100;
+
+  // Find top agent by run count
+  const agentCounts: Record<string, { name: string; count: number }> = {};
+  for (const run of runs as any[]) {
+    if (run.agent_id) {
+      const agentName = run.agents?.name ?? 'Unknown';
+      if (!agentCounts[run.agent_id]) agentCounts[run.agent_id] = { name: agentName, count: 0 };
+      agentCounts[run.agent_id].count++;
+    }
+  }
+  const topAgent = Object.values(agentCounts).sort((a, b) => b.count - a.count)[0];
+
+  const monthlyCost = (subs as any[]).reduce((sum, s) => sum + Number(s.monthly_cost ?? 0), 0);
+
+  return {
+    totalRuns,
+    healthPct,
+    topAgentName: topAgent?.name ?? null,
+    pendingMemos: memos.length,
+    monthlyCost
+  };
+}
+
 export const getOwner = () => owner;

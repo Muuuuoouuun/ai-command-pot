@@ -5,13 +5,14 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        paper: '#f6f1e8',
-        ink: '#2f2a24',
-        line: '#d7cdbd'
+        // CSS variable–driven: supports Tailwind opacity modifiers (text-ink/60 etc.)
+        paper: 'rgb(var(--color-paper) / <alpha-value>)',
+        ink:   'rgb(var(--color-ink)   / <alpha-value>)',
+        line:  'rgb(var(--color-line)  / <alpha-value>)',
       },
       fontFamily: {
         serif: ['Fraunces', 'Cormorant Garamond', 'serif'],
-        sans: ['Inter', 'system-ui', 'sans-serif']
+        sans:  ['Inter', 'system-ui', 'sans-serif']
       },
       boxShadow: {
         soft: '0 8px 24px rgba(47,42,36,0.08)'

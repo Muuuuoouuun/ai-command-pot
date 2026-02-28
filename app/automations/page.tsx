@@ -1,9 +1,7 @@
 import { getAutomations } from '@/lib/data';
 import { AutomationCard } from '@/components/automation-card';
 import { SectionTitle } from '@/components/section-title';
-import { Package, Workflow, Filter } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Workflow } from 'lucide-react';
 
 export type Automation = {
     id: string;
@@ -14,18 +12,19 @@ export type Automation = {
     is_active: boolean;
     success_rate: number;
     last_run_at?: string;
-    // ... extra fields potentially
     created_at?: string;
     owner_id?: string;
-    config?: any;
+    config?: unknown;
 };
 
+export const dynamic = 'force-dynamic';
+
 export default async function AutomationsPage() {
-    const automations = (await getAutomations()) as unknown as Automation[];
+    let automations: Automation[] = [];
+    try { automations = (await getAutomations()) as unknown as Automation[]; } catch {}
+
     const n8n = automations.filter(a => a.platform === 'n8n');
     const make = automations.filter(a => a.platform === 'make');
-
-    // Fallback if empty to show something
     const hasData = automations.length > 0;
 
     return (
@@ -40,7 +39,6 @@ export default async function AutomationsPage() {
                 </div>
             )}
 
-            {/* n8n Section */}
             {n8n.length > 0 && (
                 <section>
                     <div className="flex items-center gap-3 mb-4 sticky top-0 bg-paper/80 backdrop-blur-md z-10 py-2 border-b border-line/0">
@@ -54,7 +52,6 @@ export default async function AutomationsPage() {
                 </section>
             )}
 
-            {/* Make Section */}
             {make.length > 0 && (
                 <section>
                     <div className="flex items-center gap-3 mb-4 sticky top-0 bg-paper/80 backdrop-blur-md z-10 py-2 border-b border-line/0">
