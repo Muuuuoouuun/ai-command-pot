@@ -19,7 +19,7 @@ export function AppHeader() {
   const isSettings = pathname === '/' || pathname.startsWith('/settings');
 
   return (
-    <header className="sticky top-0 z-40 border-b border-line bg-paper/90 backdrop-blur">
+    <header className="sticky top-0 z-40 border-b border-line bg-paper/90 backdrop-blur lg:hidden">
       <div className="mx-auto flex h-14 max-w-3xl items-center justify-between px-4">
         <div className="flex items-center gap-2 text-ink/80"><NotebookPen size={16} /><span className="text-xs uppercase tracking-[0.2em]">AICN</span></div>
         <h1 className="font-serif text-lg">{current.title}</h1>
