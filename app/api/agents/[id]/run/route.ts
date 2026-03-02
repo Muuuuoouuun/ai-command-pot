@@ -8,6 +8,7 @@ type RunnerResult = {
   error: string | null;
 };
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function executeRun(agent: any, input: unknown): Promise<RunnerResult> {
   if (agent.runner_type === 'webhook') {
     const webhookUrl = agent.config?.webhook_url;
@@ -58,7 +59,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   }
 
   const ownerId = getOwner();
-  const input = (await req.json()).input ?? {};
+  const body = (await req.json()) as { input?: unknown };
+  const input = body.input ?? {};
   const { data: agent } = await sb.from('agents').select('*').eq('owner_id', ownerId).eq('id', params.id).single();
   if (!agent) return NextResponse.json({ error: 'Agent not found' }, { status: 404 });
 

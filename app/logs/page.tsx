@@ -4,9 +4,17 @@ import { getDashboardConnection, getRuns } from '@/lib/data';
 import { DataConnectionBadge } from '@/components/data-connection-badge';
 import { OverviewStrip } from '@/components/overview-strip';
 
+type Run = {
+  id: string;
+  status: string;
+  started_at: string;
+  duration_ms?: number;
+  agents?: { name: string };
+};
+
 export default async function LogsPage({ searchParams }: { searchParams?: { status?: string } }) {
-  let runs: any[] = [];
-  try { runs = await getRuns(); } catch {}
+  let runs: Run[] = [];
+  try { runs = (await getRuns()) as unknown as Run[]; } catch { }
   const connection = await getDashboardConnection();
 
   const status = searchParams?.status ?? 'all';

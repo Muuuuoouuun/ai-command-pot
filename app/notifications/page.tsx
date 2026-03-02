@@ -7,9 +7,23 @@ import WeeklySummary from '@/components/weekly-summary';
 import { SectionTitle } from '@/components/section-title';
 import { getRuns } from '@/lib/data';
 
+type Memo = {
+    id: string;
+    content: string;
+    created_at: string;
+    is_processed: boolean;
+};
+
+type Run = {
+    id: string;
+    started_at: string;
+    status: string;
+    agents?: { name: string };
+};
+
 export default async function NotificationsPage() {
-    const memos = await getMemos(20);
-    const failedRuns = (await getRuns(50)).filter((r: any) => r.status === 'failed');
+    const memos = (await getMemos(20)) as unknown as Memo[];
+    const failedRuns = ((await getRuns(50)) as unknown as Run[]).filter((r) => r.status === 'failed');
 
     return (
         <div className="space-y-8">
@@ -37,7 +51,7 @@ export default async function NotificationsPage() {
                         <h3 className="font-serif text-lg font-semibold mb-3">Alerts</h3>
                         {failedRuns.length > 0 ? (
                             <div className="space-y-3">
-                                {failedRuns.slice(0, 5).map((run: any) => (
+                                {failedRuns.slice(0, 5).map((run) => (
                                     <div key={run.id} className="bg-red-50 border border-red-100 p-4 rounded-xl flex gap-3 text-sm">
                                         <div className="text-red-600 font-bold">!</div>
                                         <div>

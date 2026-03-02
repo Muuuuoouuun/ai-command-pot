@@ -6,9 +6,19 @@ import { SubscriptionList } from '@/components/subscription-list';
 import { DataConnectionBadge } from '@/components/data-connection-badge';
 import { OverviewStrip } from '@/components/overview-strip';
 
+type Subscription = {
+  id: string;
+  service_name: string;
+  renewal_date: string;
+  monthly_cost: number;
+  currency: string;
+  status: 'active' | 'paused';
+  plan: string;
+};
+
 export default async function SubscriptionsPage({ searchParams }: { searchParams?: { sort?: string } }) {
-  let subscriptions: any[] = [];
-  try { subscriptions = await getSubscriptions(); } catch {}
+  let subscriptions: Subscription[] = [];
+  try { subscriptions = (await getSubscriptions()) as unknown as Subscription[]; } catch { }
   const connection = await getDashboardConnection();
 
   const active = subscriptions.filter((s) => s.status === 'active').length;

@@ -1,0 +1,66 @@
+
+> ai-control-notebook@0.1.0 lint
+> next lint
+
+
+./app/launch/page.tsx
+5:41  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./app/logs/page.tsx
+8:13  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./app/logs/[id]/page.tsx
+7:34  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./app/notifications/page.tsx
+12:55  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+40:67  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./app/page.tsx
+11:22  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+12:13  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+13:15  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./app/subscriptions/page.tsx
+10:22  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./app/subscriptions/subscription-form.tsx
+6:59  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+22:266  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+24:225  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./app/vault/new/page.tsx
+15:246  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./app/vault/page.tsx
+8:13  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./app/vault/[id]/page.tsx
+7:38  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+10:32  Warning: React Hook useEffect has a missing dependency: 'load'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+
+./components/automation-card.tsx
+4:10  Error: 'Play' is defined but never used.  @typescript-eslint/no-unused-vars
+4:16  Error: 'Pause' is defined but never used.  @typescript-eslint/no-unused-vars
+4:23  Error: 'AlertCircle' is defined but never used.  @typescript-eslint/no-unused-vars
+4:43  Error: 'CheckCircle2' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./components/command-interface.tsx
+6:10  Error: 'cn' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./components/memo-input.tsx
+17:18  Error: 'e' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./components/memo-timeline.tsx
+3:10  Error: 'Trash2' is defined but never used.  @typescript-eslint/no-unused-vars
+4:10  Error: 'formatDate' is defined but never used.  @typescript-eslint/no-unused-vars
+8:50  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./components/subscription-list.tsx
+6:76  Error: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./components/weekly-summary.tsx
+9:21  Error: `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`.  react/no-unescaped-entities
+9:148  Error: `"` can be escaped with `&quot;`, `&ldquo;`, `&#34;`, `&rdquo;`.  react/no-unescaped-entities
+
+info  - Need to disable some ESLint rules? Learn more here: https://nextjs.org/docs/basic-features/eslint#disabling-rules

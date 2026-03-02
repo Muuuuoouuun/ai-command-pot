@@ -3,11 +3,24 @@
 import { SectionTitle } from '@/components/section-title';
 import { useEffect, useState } from 'react';
 
+type VaultKey = {
+  id: string;
+  provider: string;
+  label: string;
+  last4: string;
+  is_active: boolean;
+  created_at: string;
+  rotated_at?: string;
+};
+
 export default function VaultDetail({ params }: { params: { id: string } }) {
-  const [entry, setEntry] = useState<any>(null);
+  const [entry, setEntry] = useState<VaultKey | null>(null);
   const [apiKey, setApiKey] = useState('');
+  useEffect(() => {
+    fetch(`/api/vault/${params.id}`).then((r) => r.json()).then(setEntry);
+  }, [params.id]);
+
   const load = () => fetch(`/api/vault/${params.id}`).then((r) => r.json()).then(setEntry);
-  useEffect(() => { load(); }, [params.id]);
 
   const rotate = async () => {
     await fetch(`/api/vault/${params.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ api_key: apiKey }) });

@@ -14,7 +14,7 @@ export function MemoInput() {
         try {
             await createMemo(text);
             setText('');
-        } catch (e) {
+        } catch {
             alert('Failed to save memo');
         }
         setIsSaving(false);

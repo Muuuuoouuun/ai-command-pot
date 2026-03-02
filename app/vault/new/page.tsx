@@ -12,5 +12,5 @@ export default function VaultNew() {
     await fetch('/api/vault', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) });
     router.push('/vault');
   };
-  return <div className="space-y-4"><SectionTitle title="New Vault Entry" /><form onSubmit={onSubmit} className="paper-card space-y-3 p-4">{Object.keys(form).map((k) => <input key={k} type={k === 'api_key' ? 'password' : 'text'} value={(form as any)[k]} onChange={(e) => setForm((f) => ({ ...f, [k]: e.target.value }))} placeholder={k} className="w-full rounded-xl border border-line bg-white/70 p-3 text-sm" />)}<button className="w-full rounded-xl bg-ink p-2 text-paper">Encrypt & Save</button></form></div>
+  return <div className="space-y-4"><SectionTitle title="New Vault Entry" /><form onSubmit={onSubmit} className="paper-card space-y-3 p-4">{Object.keys(form).map((k) => <input key={k} type={k === 'api_key' ? 'password' : 'text'} value={(form as Record<string, string>)[k]} onChange={(e) => setForm((f) => ({ ...f, [k]: e.target.value }))} placeholder={k} className="w-full rounded-xl border border-line bg-white/70 p-3 text-sm" />)}<button className="w-full rounded-xl bg-ink p-2 text-paper">Encrypt & Save</button></form></div>
 }

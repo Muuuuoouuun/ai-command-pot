@@ -3,7 +3,17 @@
 import Link from 'next/link';
 import { formatCurrency, formatDate } from '@/lib/utils';
 
-export function SubscriptionList({ subscriptions, sort }: { subscriptions: any[]; sort: string }) {
+type Subscription = {
+  id: string;
+  service_name: string;
+  plan: string;
+  renewal_date: string;
+  monthly_cost: number;
+  currency: string;
+  status: 'active' | 'paused';
+};
+
+export function SubscriptionList({ subscriptions, sort }: { subscriptions: Subscription[]; sort: string }) {
   const sorted = [...subscriptions].sort((a, b) => {
     if (sort === 'cost') return Number(b.monthly_cost || 0) - Number(a.monthly_cost || 0);
     if (sort === 'az') return String(a.service_name).localeCompare(String(b.service_name));

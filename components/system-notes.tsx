@@ -18,7 +18,7 @@ export function SystemNotes() {
       <p className="mb-2 text-xs uppercase tracking-[0.2em] text-ink/60">System Notes</p>
       <textarea
         value={note}
-        onChange={(e) => {
+        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => {
           setNote(e.target.value);
           localStorage.setItem('aicn-system-note', e.target.value);
         }}

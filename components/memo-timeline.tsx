@@ -1,11 +1,17 @@
 'use client';
 
-import { Trash2, CheckCircle2, Clock } from 'lucide-react';
-import { formatDate } from '@/lib/utils';
+import { CheckCircle2, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+type Memo = {
+    id: string;
+    content: string;
+    created_at: string;
+    is_processed: boolean;
+};
+
 // Now accepts memos via props instead of local storage
-export function MemoTimeline({ memos }: { memos: any[] }) {
+export function MemoTimeline({ memos }: { memos: Memo[] }) {
     if (memos.length === 0) {
         return (
             <div className="text-center py-8 border-2 border-dashed border-line rounded-xl opacity-50">

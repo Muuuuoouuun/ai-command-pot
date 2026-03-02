@@ -7,11 +7,33 @@ import { SystemNotes } from '@/components/system-notes';
 import { DataConnectionBadge } from '@/components/data-connection-badge';
 import { OverviewStrip } from '@/components/overview-strip';
 
+type Subscription = {
+  id: string;
+  service_name: string;
+  renewal_date: string;
+  monthly_cost: number;
+  currency: string;
+};
+
+type Run = {
+  id: string;
+  started_at: string;
+  status: string;
+  duration_ms: number;
+  agents?: { name: string };
+};
+
+type Agent = {
+  id: string;
+  name: string;
+  favorite: boolean;
+};
+
 export default async function HomePage({ searchParams }: { searchParams?: { days?: string } }) {
-  let subscriptions: any[] = [];
-  let runs: any[] = [];
-  let agents: any[] = [];
-  try { subscriptions = await getSubscriptions(); runs = await getRuns(5); agents = await getAgents(); } catch {}
+  let subscriptions: Subscription[] = [];
+  let runs: Run[] = [];
+  let agents: Agent[] = [];
+  try { subscriptions = (await getSubscriptions()) as unknown as Subscription[]; runs = (await getRuns(5)) as unknown as Run[]; agents = (await getAgents()) as unknown as Agent[]; } catch { }
   const connection = await getDashboardConnection();
 
   const days = searchParams?.days === '7' ? 7 : 14;

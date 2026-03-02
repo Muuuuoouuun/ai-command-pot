@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Play, Pause, AlertCircle, Clock, CheckCircle2 } from 'lucide-react';
+import { Clock } from 'lucide-react';
 import { toggleAutomation } from '@/app/actions';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';

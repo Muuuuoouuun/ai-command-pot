@@ -1,9 +1,8 @@
 import { getAutomations } from '@/lib/data';
 import { AutomationCard } from '@/components/automation-card';
 import { SectionTitle } from '@/components/section-title';
-import { Package, Workflow, Filter } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { motion, AnimatePresence } from 'framer-motion';
+import { Workflow } from 'lucide-react';
+
 
 export type Automation = {
     id: string;
@@ -17,10 +16,11 @@ export type Automation = {
     // ... extra fields potentially
     created_at?: string;
     owner_id?: string;
-    config?: any;
+    config?: Record<string, unknown>;
 };
 
 export default async function AutomationsPage() {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const automations = (await getAutomations()) as unknown as Automation[];
     const n8n = automations.filter(a => a.platform === 'n8n');
     const make = automations.filter(a => a.platform === 'make');

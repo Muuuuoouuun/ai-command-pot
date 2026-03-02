@@ -16,6 +16,21 @@ type Agent = {
     runner_type: string;
     favorite?: boolean;
 };
+type Subscription = {
+    id: string;
+    service_name: string;
+    renewal_date: string;
+    monthly_cost: number;
+    billing_cycle: string;
+};
+
+type VaultKey = {
+    id: string;
+    is_active: boolean;
+    provider: string;
+    last4: string;
+    label?: string;
+};
 
 export default function LaunchClientPage({
     agents,
@@ -23,11 +38,12 @@ export default function LaunchClientPage({
     keys
 }: {
     agents: Agent[],
-    subscriptions: any[],
-    keys: any[]
+    subscriptions: Subscription[],
+    keys: VaultKey[]
 }) {
     const [selected, setSelected] = useState<Agent | null>(null);
     const [jsonInput, setJsonInput] = useState('{}');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const [result, setResult] = useState<any>(null);
     const [running, setRunning] = useState(false);
     const [inputError, setInputError] = useState('');
@@ -51,7 +67,7 @@ export default function LaunchClientPage({
                 body: JSON.stringify({ input: parsedInput })
             });
             setResult(await response.json());
-        } catch (e) {
+        } catch {
             setResult({ error: 'Failed to run agent' });
         }
         setRunning(false);
@@ -195,7 +211,7 @@ export default function LaunchClientPage({
                                     <label className="block text-xs uppercase tracking-wider text-ink/60 mb-2 font-medium">Input Parameters (JSON)</label>
                                     <textarea
                                         value={jsonInput}
-                                        onChange={(e) => setJsonInput(e.target.value)}
+                                        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setJsonInput(e.target.value)}
                                         className="h-32 w-full rounded-xl border border-line bg-white/70 p-3 text-sm font-mono focus:ring-1 focus:ring-ink"
                                     />
                                     {inputError && <p className="mt-2 text-xs text-red-600 flex items-center gap-1"><span className="w-1 h-1 bg-red-600 rounded-full" /> {inputError}</p>}

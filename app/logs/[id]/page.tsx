@@ -3,8 +3,17 @@
 import { SectionTitle } from '@/components/section-title';
 import { useEffect, useState } from 'react';
 
+type Run = {
+  id: string;
+  status: string;
+  agents?: { name: string };
+  input?: unknown;
+  output?: unknown;
+  error?: string;
+};
+
 export default function LogDetail({ params }: { params: { id: string } }) {
-  const [run, setRun] = useState<any>(null);
+  const [run, setRun] = useState<Run | null>(null);
   useEffect(() => { fetch(`/api/logs/${params.id}`).then((r) => r.json()).then(setRun); }, [params.id]);
   if (!run) return null;
 

@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Send, Loader2, Sparkles, MessageSquare } from 'lucide-react';
 import { processAiCommand } from '@/app/actions';
-import { cn } from '@/lib/utils';
+
 import { motion, AnimatePresence } from 'framer-motion';
 
 export function CommandInterface() {

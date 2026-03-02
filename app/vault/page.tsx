@@ -4,9 +4,17 @@ import { getDashboardConnection, getVaultKeys } from '@/lib/data';
 import { DataConnectionBadge } from '@/components/data-connection-badge';
 import { OverviewStrip } from '@/components/overview-strip';
 
+type VaultKey = {
+  id: string;
+  provider: string;
+  label: string;
+  last4: string;
+  is_active: boolean;
+};
+
 export default async function VaultPage() {
-  let keys: any[] = [];
-  try { keys = await getVaultKeys(); } catch {}
+  let keys: VaultKey[] = [];
+  try { keys = (await getVaultKeys()) as unknown as VaultKey[]; } catch { }
   const connection = await getDashboardConnection();
 
   const activeKeys = keys.filter((k) => k.is_active !== false).length;

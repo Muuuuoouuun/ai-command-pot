@@ -3,3 +3,10 @@ export const formatCurrency = (value: number, currency = 'USD') =>
 
 export const formatDate = (value?: string | null) =>
   value ? new Date(value).toLocaleDateString() : '—';
+
+import { clsx, type ClassValue } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
