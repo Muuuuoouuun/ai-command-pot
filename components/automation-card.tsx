@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Play, Pause, AlertCircle, Clock, CheckCircle2 } from 'lucide-react';
-import { toggleAutomation } from '@/app/actions';
+import { Play, Pause, Clock, Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import { toggleAutomation, triggerAutomation } from '@/app/actions';
 import { cn } from '@/lib/utils';
 import { motion } from 'framer-motion';
 
@@ -15,11 +15,14 @@ export type Automation = {
     is_active: boolean;
     success_rate: number;
     last_run_at?: string;
+    config?: Record<string, any>;
 };
 
 export function AutomationCard({ data }: { data: Automation }) {
     const [isActive, setIsActive] = useState(data.is_active);
     const [isToggling, setIsToggling] = useState(false);
+    const [triggering, setTriggering] = useState(false);
+    const [triggerResult, setTriggerResult] = useState<'success' | 'error' | null>(null);
 
     const handleToggle = async () => {
         setIsToggling(true);
@@ -31,6 +34,21 @@ export function AutomationCard({ data }: { data: Automation }) {
         }
         setIsToggling(false);
     };
+
+    const handleTrigger = async () => {
+        setTriggering(true);
+        setTriggerResult(null);
+        try {
+            const res = await triggerAutomation(data.id);
+            setTriggerResult(res.success ? 'success' : 'error');
+        } catch {
+            setTriggerResult('error');
+        }
+        setTriggering(false);
+        setTimeout(() => setTriggerResult(null), 3000);
+    };
+
+    const hasWebhook = !!(data.config as any)?.webhook_url;
 
     return (
         <div className={cn("bg-white border rounded-2xl p-5 shadow-sm transition-all duration-300 relative overflow-hidden group", isActive ? "border-ink/20 shadow-md" : "border-line opacity-80 filter grayscale-[0.5]")}>
@@ -50,7 +68,7 @@ export function AutomationCard({ data }: { data: Automation }) {
             <h3 className="font-serif font-bold text-lg leading-tight mb-1">{data.name}</h3>
             <p className="text-xs text-ink/60 mb-4 line-clamp-2 min-h-[2.5em]">{data.description || 'No description provided'}</p>
 
-            <div className="grid grid-cols-2 gap-2 text-xs border-t border-line/50 pt-3">
+            <div className="grid grid-cols-2 gap-2 text-xs border-t border-line/50 pt-3 mb-3">
                 <div className="flex items-center gap-1.5 text-ink/70">
                     <Clock size={12} />
                     <span>{data.last_run_at ? new Date(data.last_run_at).toLocaleDateString() : 'Never'}</span>
@@ -60,6 +78,32 @@ export function AutomationCard({ data }: { data: Automation }) {
                     <span className="text-ink/40">Success</span>
                 </div>
             </div>
+
+            {/* Run Now button */}
+            {hasWebhook && (
+                <button
+                    onClick={handleTrigger}
+                    disabled={triggering || !isActive}
+                    className={cn(
+                        "w-full rounded-xl py-2 text-xs font-medium flex items-center justify-center gap-1.5 transition-all border",
+                        triggerResult === 'success'
+                            ? "bg-green-50 border-green-300 text-green-700"
+                            : triggerResult === 'error'
+                            ? "bg-red-50 border-red-300 text-red-700"
+                            : "bg-ink/5 border-transparent hover:bg-ink hover:text-paper text-ink/70 disabled:opacity-40"
+                    )}
+                >
+                    {triggering ? (
+                        <><Loader2 size={12} className="animate-spin" /> Triggering...</>
+                    ) : triggerResult === 'success' ? (
+                        <><CheckCircle2 size={12} /> Triggered</>
+                    ) : triggerResult === 'error' ? (
+                        <><XCircle size={12} /> Failed</>
+                    ) : (
+                        <><Play size={12} fill="currentColor" /> Run Now</>
+                    )}
+                </button>
+            )}
         </div>
     );
 }

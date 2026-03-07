@@ -14,7 +14,7 @@ export type Automation = {
     last_run_at?: string;
     created_at?: string;
     owner_id?: string;
-    config?: unknown;
+    config?: Record<string, any>;
 };
 
 export const dynamic = 'force-dynamic';

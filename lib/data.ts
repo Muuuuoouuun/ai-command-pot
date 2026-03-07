@@ -16,9 +16,16 @@ export async function getAgents() {
   return data ?? [];
 }
 
-export async function getRuns(limit = 25) {
+export async function getRuns(opts: { limit?: number; status?: string; agentId?: string; from?: string } = {}) {
   const sb = supabaseServer();
-  const { data, error } = await sb.from('runs').select('*, agents(name)').eq('owner_id', owner).order('started_at', { ascending: false }).limit(limit);
+  let query = sb.from('runs').select('*, agents(id, name)').eq('owner_id', owner).order('started_at', { ascending: false });
+
+  if (opts.status && opts.status !== 'all') query = query.eq('status', opts.status);
+  if (opts.agentId) query = query.eq('agent_id', opts.agentId);
+  if (opts.from) query = query.gte('started_at', opts.from);
+
+  query = query.limit(opts.limit ?? 50);
+  const { data, error } = await query;
   if (error) throw error;
   return data ?? [];
 }
@@ -56,7 +63,7 @@ export async function getDashboardConnection() {
     const [subscriptions, agents, runs, keys, memos, automations] = await Promise.all([
       getSubscriptions(),
       getAgents(),
-      getRuns(1),
+      getRuns({ limit: 1 }),
       getVaultKeys(),
       getMemos(),
       getAutomations()
@@ -122,6 +129,24 @@ export async function getWeeklyStats() {
     topAgentName: topAgent?.name ?? null,
     pendingMemos: memos.length,
     monthlyCost
+  };
+}
+
+export async function getDashboardAlerts() {
+  const sb = supabaseServer();
+  const since24h = new Date(Date.now() - 86400000).toISOString();
+  const in7days = new Date(Date.now() + 7 * 86400000).toISOString();
+
+  const [failedRes, memosRes, renewalsRes] = await Promise.allSettled([
+    sb.from('runs').select('id', { count: 'exact', head: true }).eq('owner_id', owner).eq('status', 'failed').gte('started_at', since24h),
+    sb.from('memos').select('id', { count: 'exact', head: true }).eq('owner_id', owner).eq('is_processed', false),
+    sb.from('subscriptions').select('id', { count: 'exact', head: true }).eq('owner_id', owner).lte('renewal_date', in7days).gte('renewal_date', new Date().toISOString()),
+  ]);
+
+  return {
+    failedRuns24h: failedRes.status === 'fulfilled' ? (failedRes.value.count ?? 0) : 0,
+    unprocessedMemos: memosRes.status === 'fulfilled' ? (memosRes.value.count ?? 0) : 0,
+    renewingIn7Days: renewalsRes.status === 'fulfilled' ? (renewalsRes.value.count ?? 0) : 0,
   };
 }
 

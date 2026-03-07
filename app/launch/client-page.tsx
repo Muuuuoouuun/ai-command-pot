@@ -1,12 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Bot, Key, CreditCard, Play, Plus, X, Loader2 } from 'lucide-react';
+import { Bot, Key, CreditCard, Play, Plus, X, Loader2, Pencil, Trash2 } from 'lucide-react';
 import { CommandInterface } from '@/components/command-interface';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { createMemo, createAgent } from '@/app/actions';
+import { createMemo, createAgent, updateAgent, deleteAgent } from '@/app/actions';
 import Link from 'next/link';
 
 type Agent = {
@@ -15,6 +15,7 @@ type Agent = {
     description?: string;
     category?: string;
     runner_type: string;
+    config?: Record<string, any>;
     favorite?: boolean;
 };
 
@@ -28,15 +29,22 @@ const LLM_PROVIDERS = [
     { value: 'anthropic', label: 'Anthropic (Claude)' },
 ];
 
-function CreateAgentModal({ onClose, onCreated }: { onClose: () => void; onCreated: () => void }) {
-    const [name, setName] = useState('');
-    const [description, setDescription] = useState('');
-    const [category, setCategory] = useState('');
-    const [runnerType, setRunnerType] = useState('webhook');
-    const [webhookUrl, setWebhookUrl] = useState('');
-    const [llmProvider, setLlmProvider] = useState('anthropic');
-    const [llmModel, setLlmModel] = useState('');
-    const [systemPrompt, setSystemPrompt] = useState('');
+function AgentModal({ onClose, onSaved, editAgent }: {
+    onClose: () => void;
+    onSaved: () => void;
+    editAgent?: Agent;
+}) {
+    const isEditing = !!editAgent;
+    const cfg = editAgent?.config ?? {};
+
+    const [name, setName] = useState(editAgent?.name ?? '');
+    const [description, setDescription] = useState(editAgent?.description ?? '');
+    const [category, setCategory] = useState(editAgent?.category ?? '');
+    const [runnerType, setRunnerType] = useState(editAgent?.runner_type ?? 'webhook');
+    const [webhookUrl, setWebhookUrl] = useState((cfg as any)?.webhook_url ?? '');
+    const [llmProvider, setLlmProvider] = useState((cfg as any)?.provider ?? 'anthropic');
+    const [llmModel, setLlmModel] = useState((cfg as any)?.model ?? '');
+    const [systemPrompt, setSystemPrompt] = useState((cfg as any)?.system_prompt ?? '');
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
 
@@ -45,10 +53,10 @@ function CreateAgentModal({ onClose, onCreated }: { onClose: () => void; onCreat
             return JSON.stringify({ webhook_url: webhookUrl });
         }
         if (runnerType === 'llm_call') {
-            const cfg: Record<string, string> = { provider: llmProvider };
-            if (llmModel) cfg.model = llmModel;
-            if (systemPrompt) cfg.system_prompt = systemPrompt;
-            return JSON.stringify(cfg);
+            const c: Record<string, string> = { provider: llmProvider };
+            if (llmModel) c.model = llmModel;
+            if (systemPrompt) c.system_prompt = systemPrompt;
+            return JSON.stringify(c);
         }
         return '{}';
     };
@@ -60,10 +68,14 @@ function CreateAgentModal({ onClose, onCreated }: { onClose: () => void; onCreat
         setError('');
         setSaving(true);
         try {
-            await createAgent({ name, description, category, runner_type: runnerType, config: buildConfig() });
-            onCreated();
+            if (isEditing && editAgent) {
+                await updateAgent(editAgent.id, { name, description, category, runner_type: runnerType, config: buildConfig() });
+            } else {
+                await createAgent({ name, description, category, runner_type: runnerType, config: buildConfig() });
+            }
+            onSaved();
         } catch (err: any) {
-            setError(err.message ?? 'Failed to create agent.');
+            setError(err.message ?? 'Failed to save agent.');
         }
         setSaving(false);
     };
@@ -84,12 +96,11 @@ function CreateAgentModal({ onClose, onCreated }: { onClose: () => void; onCreat
                 className="w-full max-w-lg rounded-2xl border border-line bg-paper shadow-2xl overflow-hidden"
             >
                 <div className="flex justify-between items-center p-4 border-b border-line/50 bg-white/50">
-                    <h3 className="font-serif text-xl font-bold">Deploy New Agent</h3>
+                    <h3 className="font-serif text-xl font-bold">{isEditing ? 'Edit Agent' : 'Deploy New Agent'}</h3>
                     <button onClick={onClose} className="p-1 hover:bg-ink/5 rounded-full"><X size={18} /></button>
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
-                    {/* Name */}
                     <div>
                         <label className="block text-xs uppercase tracking-wider text-ink/60 mb-1.5 font-medium">Agent Name *</label>
                         <input
@@ -100,7 +111,6 @@ function CreateAgentModal({ onClose, onCreated }: { onClose: () => void; onCreat
                         />
                     </div>
 
-                    {/* Description */}
                     <div>
                         <label className="block text-xs uppercase tracking-wider text-ink/60 mb-1.5 font-medium">Description</label>
                         <input
@@ -111,7 +121,6 @@ function CreateAgentModal({ onClose, onCreated }: { onClose: () => void; onCreat
                         />
                     </div>
 
-                    {/* Category */}
                     <div>
                         <label className="block text-xs uppercase tracking-wider text-ink/60 mb-1.5 font-medium">Category</label>
                         <input
@@ -122,7 +131,6 @@ function CreateAgentModal({ onClose, onCreated }: { onClose: () => void; onCreat
                         />
                     </div>
 
-                    {/* Runner Type */}
                     <div>
                         <label className="block text-xs uppercase tracking-wider text-ink/60 mb-1.5 font-medium">Runner Type *</label>
                         <div className="grid grid-cols-2 gap-2">
@@ -140,7 +148,6 @@ function CreateAgentModal({ onClose, onCreated }: { onClose: () => void; onCreat
                         </div>
                     </div>
 
-                    {/* Webhook config */}
                     {runnerType === 'webhook' && (
                         <div>
                             <label className="block text-xs uppercase tracking-wider text-ink/60 mb-1.5 font-medium">Webhook URL *</label>
@@ -153,7 +160,6 @@ function CreateAgentModal({ onClose, onCreated }: { onClose: () => void; onCreat
                         </div>
                     )}
 
-                    {/* LLM config */}
                     {runnerType === 'llm_call' && (
                         <div className="space-y-3">
                             <div>
@@ -200,7 +206,10 @@ function CreateAgentModal({ onClose, onCreated }: { onClose: () => void; onCreat
                         disabled={saving}
                         className="w-full rounded-xl bg-ink py-3 text-paper font-medium hover:bg-ink/90 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                     >
-                        {saving ? <><Loader2 size={16} className="animate-spin" /> Deploying...</> : <><Plus size={16} /> Deploy Agent</>}
+                        {saving
+                            ? <><Loader2 size={16} className="animate-spin" /> {isEditing ? 'Saving...' : 'Deploying...'}</>
+                            : isEditing ? 'Save Changes' : <><Plus size={16} /> Deploy Agent</>
+                        }
                     </button>
                 </form>
             </motion.div>
@@ -218,12 +227,15 @@ export default function LaunchClientPage({
     keys: any[]
 }) {
     const router = useRouter();
+    const [, startTransition] = useTransition();
     const [selected, setSelected] = useState<Agent | null>(null);
     const [jsonInput, setJsonInput] = useState('{}');
     const [result, setResult] = useState<any>(null);
     const [running, setRunning] = useState(false);
     const [inputError, setInputError] = useState('');
     const [showCreateModal, setShowCreateModal] = useState(false);
+    const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
 
     const runAgent = async () => {
         if (!selected) return;
@@ -260,6 +272,21 @@ export default function LaunchClientPage({
         }
     };
 
+    const handleDelete = (agent: Agent) => {
+        if (!confirm(`Delete "${agent.name}"? This cannot be undone.`)) return;
+        setDeletingId(agent.id);
+        startTransition(async () => {
+            try {
+                await deleteAgent(agent.id);
+                router.refresh();
+            } catch {
+                alert('Failed to delete agent.');
+            } finally {
+                setDeletingId(null);
+            }
+        });
+    };
+
     return (
         <div className="space-y-12">
             <div className="text-center space-y-6 py-8">
@@ -287,16 +314,41 @@ export default function LaunchClientPage({
                                     className="group bg-white border border-line rounded-2xl p-5 hover:shadow-md transition-all relative overflow-hidden cursor-pointer"
                                     onClick={() => { setSelected(agent); setResult(null); setJsonInput('{}'); }}
                                 >
-                                    <div className="absolute top-0 right-0 p-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                                        <button className="bg-ink text-white text-xs px-3 py-1.5 rounded-full flex items-center gap-1 shadow-lg hover:bg-ink/80 transition-colors">
+                                    {/* Action buttons on hover */}
+                                    <div className="absolute top-0 right-0 p-3 opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5">
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); setEditingAgent(agent); }}
+                                            className="bg-white text-ink/60 border border-line text-xs p-1.5 rounded-full shadow hover:text-ink hover:border-ink/40 transition-colors"
+                                            title="Edit agent"
+                                        >
+                                            <Pencil size={11} />
+                                        </button>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); handleDelete(agent); }}
+                                            disabled={deletingId === agent.id}
+                                            className="bg-white text-red-400 border border-line text-xs p-1.5 rounded-full shadow hover:bg-red-50 hover:border-red-300 transition-colors disabled:opacity-50"
+                                            title="Delete agent"
+                                        >
+                                            {deletingId === agent.id ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
+                                        </button>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); setSelected(agent); setResult(null); setJsonInput('{}'); }}
+                                            className="bg-ink text-white text-xs px-3 py-1.5 rounded-full flex items-center gap-1 shadow-lg hover:bg-ink/80 transition-colors"
+                                        >
                                             Run <Play size={10} fill="currentColor" />
                                         </button>
                                     </div>
+
                                     <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-gray-100 to-gray-200 flex items-center justify-center mb-3">
                                         <Bot size={20} className="text-ink/60" />
                                     </div>
                                     <h3 className="font-bold text-lg mb-1">{agent.name}</h3>
                                     <p className="text-sm text-ink/60 line-clamp-2">{agent.description || 'System agent ready for deployment.'}</p>
+                                    {agent.runner_type && (
+                                        <span className="mt-2 inline-block text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-ink/5 text-ink/40">
+                                            {agent.runner_type === 'webhook' ? '⚡ Webhook' : '🤖 LLM'}
+                                        </span>
+                                    )}
                                 </div>
                             ))}
                             <button
@@ -367,9 +419,20 @@ export default function LaunchClientPage({
             {/* Create Agent Modal */}
             <AnimatePresence>
                 {showCreateModal && (
-                    <CreateAgentModal
+                    <AgentModal
                         onClose={() => setShowCreateModal(false)}
-                        onCreated={() => { setShowCreateModal(false); router.refresh(); }}
+                        onSaved={() => { setShowCreateModal(false); router.refresh(); }}
+                    />
+                )}
+            </AnimatePresence>
+
+            {/* Edit Agent Modal */}
+            <AnimatePresence>
+                {editingAgent && (
+                    <AgentModal
+                        editAgent={editingAgent}
+                        onClose={() => setEditingAgent(null)}
+                        onSaved={() => { setEditingAgent(null); router.refresh(); }}
                     />
                 )}
             </AnimatePresence>
@@ -392,7 +455,12 @@ export default function LaunchClientPage({
                             className="w-full max-w-lg rounded-2xl border border-line bg-paper shadow-2xl overflow-hidden"
                         >
                             <div className="flex justify-between items-center p-4 border-b border-line/50 bg-white/50">
-                                <h3 className="font-serif text-xl font-bold">{selected.name}</h3>
+                                <div>
+                                    <h3 className="font-serif text-xl font-bold">{selected.name}</h3>
+                                    {selected.runner_type && (
+                                        <span className="text-xs text-ink/40">{selected.runner_type === 'webhook' ? '⚡ Webhook' : '🤖 LLM'}</span>
+                                    )}
+                                </div>
                                 <button onClick={() => setSelected(null)} className="p-1 hover:bg-ink/5 rounded-full"><X size={18} /></button>
                             </div>
 

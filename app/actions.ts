@@ -35,6 +35,24 @@ export async function deleteMemo(id: string) {
     return { success: true };
 }
 
+export async function triggerAutomation(id: string) {
+    const sb = supabaseServer();
+    const { data, error } = await sb.from('automations').select('config, name').eq('id', id).eq('owner_id', owner).single();
+    if (error || !data) throw new Error('Automation not found');
+
+    const config = data.config as Record<string, any>;
+    const webhookUrl = config?.webhook_url;
+    if (!webhookUrl) throw new Error('No webhook URL configured for this automation');
+
+    const response = await fetch(webhookUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ source: 'aicn', triggered_at: new Date().toISOString() }),
+    });
+
+    return { success: response.ok, status: response.status };
+}
+
 export async function toggleAutomation(id: string, isActive: boolean) {
     const sb = supabaseServer();
     const { error } = await sb.from('automations').update({ is_active: isActive }).eq('id', id).eq('owner_id', owner);
@@ -117,5 +135,55 @@ export async function createAgent(data: {
     if (error) throw new Error(error.message);
 
     revalidatePath('/launch');
+    return { success: true };
+}
+
+export async function updateAgent(id: string, data: {
+    name: string;
+    description: string;
+    category: string;
+    runner_type: string;
+    config: string;
+}) {
+    const sb = supabaseServer();
+
+    let parsedConfig = {};
+    try {
+        parsedConfig = JSON.parse(data.config || '{}');
+    } catch {
+        throw new Error('Config must be valid JSON');
+    }
+
+    const { error } = await sb.from('agents').update({
+        name: data.name,
+        description: data.description || null,
+        category: data.category || null,
+        runner_type: data.runner_type,
+        config: parsedConfig,
+    }).eq('id', id).eq('owner_id', owner);
+
+    if (error) throw new Error(error.message);
+
+    revalidatePath('/launch');
+    return { success: true };
+}
+
+export async function deleteAgent(id: string) {
+    const sb = supabaseServer();
+    const { error } = await sb.from('agents').delete().eq('id', id).eq('owner_id', owner);
+
+    if (error) throw new Error(error.message);
+
+    revalidatePath('/launch');
+    return { success: true };
+}
+
+export async function deleteVaultKey(id: string) {
+    const sb = supabaseServer();
+    const { error } = await sb.from('api_keys').delete().eq('id', id).eq('owner_id', owner);
+
+    if (error) throw new Error(error.message);
+
+    revalidatePath('/vault');
     return { success: true };
 }

@@ -14,7 +14,7 @@ export default async function NotificationsPage() {
     let memos: unknown[] = [], failedRuns: unknown[] = [];
     let weeklyStats = defaultStats;
     try {
-        const [m, allRuns, ws] = await Promise.all([getMemos(20), getRuns(50), getWeeklyStats()]);
+        const [m, allRuns, ws] = await Promise.all([getMemos(20), getRuns({ limit: 50 }), getWeeklyStats()]);
         memos = m;
         failedRuns = (allRuns as { status: string }[]).filter((r) => r.status === 'failed');
         weeklyStats = ws;
