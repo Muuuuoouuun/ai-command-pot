@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Send, Loader2, Sparkles, MessageSquare } from 'lucide-react';
-import { processAiCommand } from '@/app/actions';
+import { Send, Loader2, Sparkles, MessageSquare, BookmarkPlus, Check } from 'lucide-react';
+import { processAiCommand, createMemo } from '@/app/actions';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -10,19 +10,37 @@ export function CommandInterface() {
     const [input, setInput] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
     const [response, setResponse] = useState<string | null>(null);
+    const [savedQuery, setSavedQuery] = useState<string | null>(null);
+    const [saving, setSaving] = useState(false);
+    const [saved, setSaved] = useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!input.trim()) return;
         setIsProcessing(true);
         setResponse(null);
+        setSaved(false);
+        const query = input.trim();
+        setSavedQuery(query);
         try {
-            const res = await processAiCommand(input);
+            const res = await processAiCommand(query);
             setResponse(res.response);
         } catch {
             setResponse("Command failed to execute. Please try again.");
         }
         setIsProcessing(false);
+    };
+
+    const handleSaveToMemo = async () => {
+        if (!response) return;
+        setSaving(true);
+        try {
+            await createMemo(`[AI] ${savedQuery}\n\n${response}`);
+            setSaved(true);
+        } catch {
+            /* silent fail */
+        }
+        setSaving(false);
     };
 
     return (
@@ -63,9 +81,28 @@ export function CommandInterface() {
                             <div className="w-8 h-8 rounded-full bg-blue-50 flex items-center justify-center shrink-0">
                                 <MessageSquare size={14} className="text-blue-600" />
                             </div>
-                            <div className="space-y-1">
+                            <div className="space-y-1 flex-1">
                                 <p className="text-xs uppercase tracking-wider font-bold text-ink/40 mb-1">AI Response</p>
                                 <p className="text-sm text-ink leading-relaxed font-medium whitespace-pre-wrap">{response}</p>
+                                <div className="pt-3">
+                                    <button
+                                        onClick={handleSaveToMemo}
+                                        disabled={saving || saved}
+                                        className={cn(
+                                            "flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full border transition-all",
+                                            saved
+                                                ? "border-green-300 bg-green-50 text-green-700"
+                                                : "border-line bg-white/70 text-ink/60 hover:text-ink hover:border-ink/30"
+                                        )}
+                                    >
+                                        {saved
+                                            ? <><Check size={12} /> Saved to Memos</>
+                                            : saving
+                                            ? <><Loader2 size={12} className="animate-spin" /> Saving...</>
+                                            : <><BookmarkPlus size={12} /> Save to Memo</>
+                                        }
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </motion.div>

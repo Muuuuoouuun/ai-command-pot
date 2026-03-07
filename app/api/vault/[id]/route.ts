@@ -18,3 +18,9 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
   return NextResponse.json(data);
 }
+
+export async function DELETE(_: Request, { params }: { params: { id: string } }) {
+  const { error } = await supabaseServer().from('api_keys').delete().eq('owner_id', getOwner()).eq('id', params.id);
+  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  return NextResponse.json({ success: true });
+}
