@@ -2,12 +2,12 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, PlayCircle, WalletCards, KeyRound, Logs } from 'lucide-react';
+import { Home, PlayCircle, GitBranch, KeyRound, Logs } from 'lucide-react';
 
 const items = [
   { href: '/', label: 'Home', icon: Home },
   { href: '/launch', label: 'Launch', icon: PlayCircle },
-  { href: '/subscriptions', label: 'Subscriptions', icon: WalletCards },
+  { href: '/orchestrations', label: 'Pipeline', icon: GitBranch },
   { href: '/vault', label: 'Vault', icon: KeyRound },
   { href: '/logs', label: 'Logs', icon: Logs }
 ];

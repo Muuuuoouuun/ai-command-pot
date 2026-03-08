@@ -88,4 +88,35 @@ export async function getDashboardConnection() {
   }
 }
 
+export async function getOrchestrations() {
+  try {
+    const sb = supabaseServer();
+    const { data, error } = await sb
+      .from('orchestrations')
+      .select('*')
+      .eq('owner_id', owner)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data ?? [];
+  } catch { return []; }
+}
+
+export async function getOrchestrationRuns(orchestrationId?: string, limit = 20) {
+  try {
+    const sb = supabaseServer();
+    let query = sb
+      .from('orchestration_runs')
+      .select('*')
+      .eq('owner_id', owner)
+      .order('started_at', { ascending: false })
+      .limit(limit);
+    if (orchestrationId) {
+      query = query.eq('orchestration_id', orchestrationId);
+    }
+    const { data, error } = await query;
+    if (error) throw error;
+    return data ?? [];
+  } catch { return []; }
+}
+
 export const getOwner = () => owner;

@@ -2,12 +2,13 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, PlayCircle, WalletCards, KeyRound, Logs, Bell, Workflow, Settings, Command as LucideCommand } from 'lucide-react';
+import { Home, PlayCircle, WalletCards, KeyRound, Logs, Bell, Workflow, Settings, Command as LucideCommand, GitBranch } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const items = [
     { href: '/', label: 'Overview', icon: Home },
     { href: '/launch', label: 'AI Launch', icon: PlayCircle },
+    { href: '/orchestrations', label: 'Orchestrations', icon: GitBranch },
     { href: '/automations', label: 'Automations', icon: Workflow },
     { href: '/notifications', label: 'Notifications', icon: Bell },
     { href: '/logs', label: 'System Logs', icon: Logs },
@@ -32,7 +33,7 @@ export function Sidebar({ className }: { className?: string }) {
 
             <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
                 <div className="text-xs font-semibold text-ink/40 uppercase tracking-wider mb-2 px-2 mt-4">Platform</div>
-                {items.slice(0, 5).map(({ href, label, icon: Icon }) => {
+                {items.slice(0, 6).map(({ href, label, icon: Icon }) => {
                     const active = pathname === href || (href !== '/' && pathname.startsWith(href));
                     return (
                         <Link
@@ -50,7 +51,7 @@ export function Sidebar({ className }: { className?: string }) {
                 })}
 
                 <div className="text-xs font-semibold text-ink/40 uppercase tracking-wider mb-2 px-2 mt-6">Infrastructure</div>
-                {items.slice(5).map(({ href, label, icon: Icon }) => {
+                {items.slice(6).map(({ href, label, icon: Icon }) => {
                     const active = pathname === href || (href !== '/' && pathname.startsWith(href));
                     return (
                         <Link
