@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { SectionTitle } from '@/components/section-title';
-import { BookOpen, Lightbulb, BarChart2, Search, ChevronRight, X, Star, ExternalLink } from 'lucide-react';
+import { BookOpen, Lightbulb, BarChart2, Search, ChevronRight, X, Star, ExternalLink, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 // --- Types ---
@@ -49,9 +49,20 @@ const TIP_TYPE_CONFIG = {
   security: { label: 'Security', color: 'bg-red-100 text-red-600', icon: '🔒' },
 };
 
+// Escape HTML special characters to prevent XSS before any regex transforms.
+function escapeHtml(raw: string): string {
+  return raw
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
 // --- Simple Markdown renderer (no external deps) ---
 function SimpleMarkdown({ content }: { content: string }) {
-  const html = content
+  // Escape first, then apply Markdown transforms so injected HTML can never execute.
+  const escaped = escapeHtml(content);
+  const html = escaped
     .replace(/^### (.+)$/gm, '<h3 class="font-serif text-base font-bold mt-4 mb-2 text-ink">$1</h3>')
     .replace(/^## (.+)$/gm, '<h2 class="font-serif text-lg font-bold mt-5 mb-2 text-ink">$1</h2>')
     .replace(/^# (.+)$/gm, '<h1 class="font-serif text-xl font-bold mt-2 mb-3 text-ink">$1</h1>')
@@ -71,6 +82,7 @@ function SimpleMarkdown({ content }: { content: string }) {
 function SkillsTab() {
   const [skills, setSkills] = useState<Skill[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [selectedDifficulty, setSelectedDifficulty] = useState('');
   const [selectedSkill, setSelectedSkill] = useState<Skill | null>(null);
@@ -78,14 +90,18 @@ function SkillsTab() {
 
   const fetchSkills = useCallback(async () => {
     setLoading(true);
+    setError(null);
     const params = new URLSearchParams();
     if (search) params.set('q', search);
     if (selectedDifficulty) params.set('difficulty', selectedDifficulty);
     try {
       const res = await fetch(`/api/skills?${params}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       setSkills(json.data ?? []);
-    } catch { /* ignore */ }
+    } catch {
+      setError('스킬 목록을 불러오지 못했습니다.');
+    }
     setLoading(false);
   }, [search, selectedDifficulty]);
 
@@ -96,14 +112,28 @@ function SkillsTab() {
 
   const openSkill = async (slug: string) => {
     setLoadingDetail(true);
-    const res = await fetch(`/api/skills/${slug}`);
-    const json = await res.json();
-    setSelectedSkill(json);
-    setLoadingDetail(false);
+    try {
+      const res = await fetch(`/api/skills/${slug}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const json = await res.json();
+      setSelectedSkill(json);
+    } catch {
+      // Keep modal closed on failure — no partial state
+    } finally {
+      setLoadingDetail(false);
+    }
   };
 
   return (
     <div className="space-y-6">
+      {error && (
+        <div className="flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+          <AlertTriangle size={16} className="flex-shrink-0" />
+          {error}
+          <button onClick={fetchSkills} className="ml-auto underline text-xs">재시도</button>
+        </div>
+      )}
+
       {/* Search + filters */}
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
@@ -231,18 +261,23 @@ function SkillsTab() {
 function TipsTab() {
   const [tips, setTips] = useState<Tip[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedType, setSelectedType] = useState('');
 
   useEffect(() => {
     const fetchTips = async () => {
       setLoading(true);
+      setError(null);
       const params = new URLSearchParams();
       if (selectedType) params.set('type', selectedType);
       try {
         const res = await fetch(`/api/tips?${params}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
         setTips(json.data ?? []);
-      } catch { /* ignore */ }
+      } catch {
+        setError('팁을 불러오지 못했습니다.');
+      }
       setLoading(false);
     };
     fetchTips();
@@ -253,6 +288,13 @@ function TipsTab() {
 
   return (
     <div className="space-y-6">
+      {error && (
+        <div className="flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+          <AlertTriangle size={16} className="flex-shrink-0" />
+          {error}
+        </div>
+      )}
+
       {/* Type filters */}
       <div className="flex gap-2 flex-wrap">
         {(['', 'prompt', 'workflow', 'cost', 'security'] as const).map(type => (
@@ -349,6 +391,8 @@ function ReportsTab() {
   const [reports, setReports] = useState<Report[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [generateError, setGenerateError] = useState<string | null>(null);
   const [reportType, setReportType] = useState<'weekly' | 'monthly'>('weekly');
   const [periodStart, setPeriodStart] = useState(() => {
     const d = new Date();
@@ -358,11 +402,15 @@ function ReportsTab() {
 
   const fetchReports = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const res = await fetch('/api/reports');
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       setReports(json.data ?? []);
-    } catch { /* ignore */ }
+    } catch {
+      setError('리포트 목록을 불러오지 못했습니다.');
+    }
     setLoading(false);
   }, []);
 
@@ -370,19 +418,34 @@ function ReportsTab() {
 
   const generate = async () => {
     setGenerating(true);
+    setGenerateError(null);
     try {
-      await fetch('/api/reports/generate', {
+      const res = await fetch('/api/reports/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ type: reportType, period_start: periodStart }),
       });
+      if (!res.ok) {
+        const json = await res.json();
+        throw new Error(json.error ?? `HTTP ${res.status}`);
+      }
       await fetchReports();
-    } catch { /* ignore */ }
+    } catch (e: unknown) {
+      setGenerateError(e instanceof Error ? e.message : '리포트 생성에 실패했습니다.');
+    }
     setGenerating(false);
   };
 
   return (
     <div className="space-y-6">
+      {error && (
+        <div className="flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+          <AlertTriangle size={16} className="flex-shrink-0" />
+          {error}
+          <button onClick={fetchReports} className="ml-auto underline text-xs">재시도</button>
+        </div>
+      )}
+
       {/* Generate report form */}
       <div className="paper-card p-5 space-y-4">
         <h3 className="font-semibold text-sm text-ink">Generate Report</h3>
@@ -416,6 +479,11 @@ function ReportsTab() {
           </button>
         </div>
         <p className="text-xs text-ink/40">Generates a {reportType} report starting from the selected date using your AI usage and automation data.</p>
+        {generateError && (
+          <div className="flex items-center gap-2 text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+            <AlertTriangle size={12} /> {generateError}
+          </div>
+        )}
       </div>
 
       {/* Reports list */}

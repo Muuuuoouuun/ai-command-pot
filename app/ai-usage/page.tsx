@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { SectionTitle } from '@/components/section-title';
-import { BarChart3, TrendingUp, Zap, AlertCircle, DollarSign, RefreshCw } from 'lucide-react';
+import { BarChart3, TrendingUp, Zap, AlertCircle, DollarSign, RefreshCw, AlertTriangle } from 'lucide-react';
 
 type ServiceStat = { calls: number; cost: number; tokens: number; errors: number };
 type DailyRow = {
@@ -48,27 +48,44 @@ export default function AIUsagePage() {
   const [data, setData] = useState<DashboardData | null>(null);
   const [period, setPeriod] = useState<'7d' | '30d' | '90d'>('30d');
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
+    setError(null);
     try {
-      const res = await fetch(`/api/ai-usage/dashboard?period=${period}`);
+      const res = await fetch(`/api/ai-usage/dashboard?period=${period}`, { signal });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       setData(json);
-    } catch {
-      // ignore
+    } catch (e: unknown) {
+      if (e instanceof DOMException && e.name === 'AbortError') return;
+      setError('데이터를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
     } finally {
       setLoading(false);
     }
   }, [period]);
 
-  useEffect(() => { fetchData(); }, [fetchData]);
+  // AbortController: cancel in-flight request when period changes
+  useEffect(() => {
+    const controller = new AbortController();
+    fetchData(controller.signal);
+    return () => controller.abort();
+  }, [fetchData]);
 
-  const services = data ? Object.entries(data.byService) : [];
-  const totalCost = data?.summary.totalCost ?? 0;
-  const totalCalls = data?.summary.totalCalls ?? 0;
-  const totalTokens = data?.summary.totalTokens ?? 0;
-  const errorRate = totalCalls > 0 ? ((data?.summary.errorCount ?? 0) / totalCalls * 100).toFixed(1) : '0';
+  // Memoize derived values so they don't recalculate on every render
+  const { services, totalCost, totalCalls, totalTokens, errorRate } = useMemo(() => {
+    const byService = data?.byService ?? {};
+    const summary = data?.summary;
+    const calls = summary?.totalCalls ?? 0;
+    return {
+      services: Object.entries(byService),
+      totalCost: summary?.totalCost ?? 0,
+      totalCalls: calls,
+      totalTokens: summary?.totalTokens ?? 0,
+      errorRate: calls > 0 ? (((summary?.errorCount ?? 0) / calls) * 100).toFixed(1) : '0',
+    };
+  }, [data]);
 
   return (
     <div className="space-y-8">
@@ -87,7 +104,7 @@ export default function AIUsagePage() {
             </button>
           ))}
           <button
-            onClick={fetchData}
+            onClick={() => fetchData()}
             disabled={loading}
             className="p-1.5 rounded-lg bg-ink/5 hover:bg-ink/10 text-ink/60 transition-all"
           >
@@ -95,6 +112,15 @@ export default function AIUsagePage() {
           </button>
         </div>
       </div>
+
+      {/* Error banner */}
+      {error && (
+        <div className="flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+          <AlertTriangle size={16} className="flex-shrink-0" />
+          {error}
+          <button onClick={() => fetchData()} className="ml-auto underline text-xs">재시도</button>
+        </div>
+      )}
 
       {/* KPI Summary */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -117,11 +143,11 @@ export default function AIUsagePage() {
       {/* Service Breakdown */}
       <div>
         <h2 className="font-serif text-lg font-bold mb-4">Service Breakdown</h2>
-        {!loading && services.length === 0 ? (
+        {!loading && !error && services.length === 0 ? (
           <div className="text-center py-16 bg-white/50 border border-dashed border-line rounded-2xl">
             <BarChart3 size={40} className="text-ink/20 mx-auto mb-3" />
-            <p className="text-sm text-ink/50">No usage data for this period.</p>
-            <p className="text-xs text-ink/30 mt-1">Use the <code>/api/ai-usage/track</code> endpoint to log AI calls.</p>
+            <p className="text-sm text-ink/50">이 기간에 AI 사용 기록이 없습니다.</p>
+            <p className="text-xs text-ink/30 mt-1">AI Launch에서 에이전트를 실행하면 여기에 집계됩니다.</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -218,23 +244,25 @@ export default function AIUsagePage() {
         </div>
       )}
 
-      {/* How to track */}
-      <div className="paper-card p-5 bg-ink/2 border-dashed">
-        <h3 className="font-semibold text-sm text-ink mb-2">How to Track AI Usage</h3>
+      {/* Integration guide */}
+      <div className="paper-card p-5 border-dashed">
+        <h3 className="font-semibold text-sm text-ink mb-2">AI 호출 기록 방법</h3>
         <p className="text-xs text-ink/50 mb-3">
-          POST to <code className="bg-ink/10 px-1 rounded">/api/ai-usage/track</code> after each AI call to log usage data.
+          각 AI 호출 직후 서버에서 usage tracking API를 호출하면 자동으로 집계됩니다.
         </p>
-        <pre className="text-xs bg-ink/5 rounded-xl p-3 overflow-x-auto text-ink/70">{`fetch('/api/ai-usage/track', {
+        <pre className="text-xs bg-ink/5 rounded-xl p-3 overflow-x-auto text-ink/70">{`// 서버 컴포넌트 또는 API Route에서
+await fetch('/api/ai-usage/track', {
   method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
-    service: 'claude',
+    service: 'claude',          // claude | gemini | codex | github | antigravity | other
     model: 'claude-sonnet-4-6',
     operation: 'chat',
     tokens_input: 1200,
     tokens_output: 450,
     cost_usd: 0.0048,
     latency_ms: 1230,
-    status: 'success'
+    status: 'success'           // success | error | rate_limited
   })
 })`}</pre>
       </div>

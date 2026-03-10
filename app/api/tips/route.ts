@@ -18,6 +18,6 @@ export async function GET(req: Request) {
   if (featured === 'true') query = query.eq('is_featured', true);
 
   const { data, error } = await query;
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ data: data ?? [] });
 }

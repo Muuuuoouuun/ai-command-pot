@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SectionTitle } from '@/components/section-title';
-import { Bot, Wifi, WifiOff, RefreshCw, X, Clock, Activity } from 'lucide-react';
+import { Bot, Wifi, WifiOff, RefreshCw, X, Clock, Activity, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type AgentData = {
@@ -35,7 +35,8 @@ const AVATAR_COLORS = [
   'from-yellow-400 to-orange-500',
 ];
 
-// Deterministic position assignment for agents without workspace_position
+const MAX_POLL_FAILURES = 3;
+
 function getDefaultPosition(index: number, total: number): { x: number; y: number } {
   const cols = Math.ceil(Math.sqrt(total));
   const row = Math.floor(index / cols);
@@ -82,7 +83,6 @@ function AgentCharacter({
       className="flex flex-col items-center gap-1 cursor-pointer group z-10"
       onClick={() => onSelect(agent)}
     >
-      {/* Status bubble */}
       {agent.current_task && (
         <motion.div
           initial={{ opacity: 0, y: 4 }}
@@ -93,7 +93,6 @@ function AgentCharacter({
         </motion.div>
       )}
 
-      {/* Character body */}
       <motion.div
         animate={characterVariants[agent.status] as Parameters<typeof motion.div>[0]['animate']}
         className={cn(
@@ -105,7 +104,6 @@ function AgentCharacter({
         {initials}
       </motion.div>
 
-      {/* Status dot */}
       <div className="flex items-center gap-1">
         <div className={cn('w-2 h-2 rounded-full', cfg.color, agent.status === 'working' && 'animate-pulse')} />
         <span className="text-[9px] text-ink/40 font-medium">{agent.name}</span>
@@ -178,25 +176,55 @@ export default function AgentsMapPage() {
   const [agents, setAgents] = useState<AgentData[]>([]);
   const [loading, setLoading] = useState(true);
   const [connected, setConnected] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<AgentData | null>(null);
+  const [pollingStopped, setPollingStopped] = useState(false);
+
+  // Track consecutive failures without causing re-renders on every tick
+  const failCount = useRef(0);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const fetchAgents = useCallback(async () => {
     try {
       const res = await fetch('/api/agents/status');
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const json = await res.json();
       setAgents(json.data ?? []);
       setConnected(true);
+      setError(null);
+      failCount.current = 0;
     } catch {
+      failCount.current += 1;
       setConnected(false);
+      if (failCount.current >= MAX_POLL_FAILURES) {
+        // Stop polling after 3 consecutive failures
+        if (intervalRef.current) {
+          clearInterval(intervalRef.current);
+          intervalRef.current = null;
+        }
+        setPollingStopped(true);
+        setError('에이전트 상태를 가져올 수 없습니다. 연결을 확인하고 다시 시도해 주세요.');
+      }
     } finally {
       setLoading(false);
     }
   }, []);
 
+  const restartPolling = useCallback(() => {
+    failCount.current = 0;
+    setPollingStopped(false);
+    setError(null);
+    setLoading(true);
+    fetchAgents();
+    intervalRef.current = setInterval(fetchAgents, 10000);
+  }, [fetchAgents]);
+
   useEffect(() => {
     fetchAgents();
-    const interval = setInterval(fetchAgents, 10000);
-    return () => clearInterval(interval);
+    intervalRef.current = setInterval(fetchAgents, 10000);
+    return () => {
+      if (intervalRef.current) clearInterval(intervalRef.current);
+    };
   }, [fetchAgents]);
 
   const statusCounts = agents.reduce(
@@ -214,7 +242,7 @@ export default function AgentsMapPage() {
             {connected ? 'Live' : 'Offline'}
           </div>
           <button
-            onClick={fetchAgents}
+            onClick={pollingStopped ? restartPolling : fetchAgents}
             disabled={loading}
             className="p-1.5 rounded-lg bg-ink/5 hover:bg-ink/10 text-ink/60"
           >
@@ -222,6 +250,15 @@ export default function AgentsMapPage() {
           </button>
         </div>
       </div>
+
+      {/* Error / polling-stopped banner */}
+      {error && (
+        <div className="flex items-center gap-2 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
+          <AlertTriangle size={16} className="flex-shrink-0" />
+          {error}
+          <button onClick={restartPolling} className="ml-auto underline text-xs whitespace-nowrap">재연결 시도</button>
+        </div>
+      )}
 
       {/* Status legend */}
       <div className="flex items-center gap-4 flex-wrap">
@@ -238,7 +275,6 @@ export default function AgentsMapPage() {
 
       {/* Office map */}
       <div className="relative paper-card overflow-hidden" style={{ minHeight: '500px' }}>
-        {/* Office background grid */}
         <div
           className="absolute inset-0 opacity-5"
           style={{
@@ -247,7 +283,6 @@ export default function AgentsMapPage() {
           }}
         />
 
-        {/* Zone labels */}
         <div className="absolute top-4 left-4 text-xs font-semibold text-ink/20 uppercase tracking-wider">AI Workspace</div>
         <div className="absolute top-4 right-4 text-xs text-ink/20">{agents.length} agents</div>
 
@@ -260,7 +295,7 @@ export default function AgentsMapPage() {
           </div>
         )}
 
-        {!loading && agents.length === 0 && (
+        {!loading && !error && agents.length === 0 && (
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="text-center">
               <Bot size={48} className="text-ink/20 mx-auto mb-3" />
@@ -283,7 +318,6 @@ export default function AgentsMapPage() {
           ))}
         </AnimatePresence>
 
-        {/* Detail panel */}
         <AnimatePresence>
           {selected && (
             <AgentDetailPanel
@@ -294,7 +328,7 @@ export default function AgentsMapPage() {
         </AnimatePresence>
       </div>
 
-      {/* Agent list as fallback */}
+      {/* Agent list */}
       {agents.length > 0 && (
         <div>
           <h2 className="font-serif text-lg font-bold mb-4">All Agents</h2>

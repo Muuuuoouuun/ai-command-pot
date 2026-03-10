@@ -22,6 +22,6 @@ export async function GET(req: Request) {
   if (search) query = query.ilike('title', `%${search}%`);
 
   const { data, error, count } = await query.range((page - 1) * pageSize, page * pageSize - 1);
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ data: data ?? [], total: count ?? 0 });
 }

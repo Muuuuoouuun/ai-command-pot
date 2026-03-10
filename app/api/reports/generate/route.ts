@@ -2,15 +2,36 @@ import { NextResponse } from 'next/server';
 import { getOwner } from '@/lib/data';
 import { supabaseServer } from '@/lib/supabase';
 
+const VALID_TYPES = ['weekly', 'monthly'] as const;
+
 export async function POST(req: Request) {
-  const body = await req.json();
-  const { type, period_start } = body as { type: 'weekly' | 'monthly'; period_start: string };
+  let body: unknown;
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+  }
+
+  const { type, period_start } = body as Record<string, unknown>;
+
+  if (!type || !VALID_TYPES.includes(type as typeof VALID_TYPES[number])) {
+    return NextResponse.json(
+      { error: `type must be one of: ${VALID_TYPES.join(', ')}` },
+      { status: 400 }
+    );
+  }
+  if (typeof period_start !== 'string' || isNaN(new Date(period_start).getTime())) {
+    return NextResponse.json(
+      { error: 'period_start must be a valid ISO date string (YYYY-MM-DD)' },
+      { status: 400 }
+    );
+  }
 
   const owner = getOwner();
   const sb = supabaseServer();
 
-  const start = new Date(period_start);
-  const end = new Date(period_start);
+  const start = new Date(period_start as string);
+  const end = new Date(period_start as string);
   if (type === 'weekly') {
     end.setDate(end.getDate() + 6);
   } else {
@@ -21,7 +42,6 @@ export async function POST(req: Request) {
   const startStr = start.toISOString().split('T')[0];
   const endStr = end.toISOString().split('T')[0];
 
-  // Gather data from the feature tables
   const [usageResult, automationsResult] = await Promise.all([
     sb
       .from('ai_usage_daily')
@@ -40,7 +60,6 @@ export async function POST(req: Request) {
   const usageData = usageResult.data ?? [];
   const automationData = automationsResult.data ?? [];
 
-  // Aggregate AI usage by service
   const serviceBreakdown: Record<string, { calls: number; cost: number }> = {};
   let totalCost = 0;
   let totalAICalls = 0;
@@ -79,6 +98,6 @@ export async function POST(req: Request) {
     .select('*')
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json(data);
 }

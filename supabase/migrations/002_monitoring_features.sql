@@ -33,6 +33,7 @@ create table if not exists automation_alert_rules (
 
 create index if not exists idx_automation_executions_owner on automation_executions(owner_id, triggered_at desc);
 create index if not exists idx_automation_executions_status on automation_executions(status, triggered_at desc);
+create index if not exists idx_automation_alert_rules_owner on automation_alert_rules(owner_id);
 
 alter table automation_executions enable row level security;
 alter table automation_alert_rules enable row level security;
