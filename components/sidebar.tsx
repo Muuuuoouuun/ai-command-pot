@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, PlayCircle, WalletCards, KeyRound, Logs, Bell, Workflow, Settings, Command as LucideCommand, GitBranch, BarChart3, Bot, BookOpen } from 'lucide-react';
+import { Home, PlayCircle, WalletCards, KeyRound, Logs, Bell, Workflow, Settings, Command as LucideCommand, GitBranch, BarChart3, Bot, BookOpen, ServerCog } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const items = [
@@ -12,6 +12,7 @@ const items = [
     { href: '/automations', label: 'Automations', icon: Workflow },
     { href: '/ai-usage', label: 'AI Usage', icon: BarChart3 },
     { href: '/agents-map', label: 'Agent Map', icon: Bot },
+    { href: '/mcp', label: 'MCP Servers', icon: ServerCog },
     { href: '/notifications', label: 'Notifications', icon: Bell },
     { href: '/logs', label: 'System Logs', icon: Logs },
     { href: '/skills', label: 'Skills & Tips', icon: BookOpen },
@@ -36,7 +37,7 @@ export function Sidebar({ className }: { className?: string }) {
 
             <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
                 <div className="text-xs font-semibold text-ink/40 uppercase tracking-wider mb-2 px-2 mt-4">Platform</div>
-                {items.slice(0, 9).map(({ href, label, icon: Icon }) => {
+                {items.slice(0, 10).map(({ href, label, icon: Icon }) => {
                     const active = pathname === href || (href !== '/' && pathname.startsWith(href));
                     return (
                         <Link
@@ -54,7 +55,7 @@ export function Sidebar({ className }: { className?: string }) {
                 })}
 
                 <div className="text-xs font-semibold text-ink/40 uppercase tracking-wider mb-2 px-2 mt-6">Infrastructure</div>
-                {items.slice(9).map(({ href, label, icon: Icon }) => {
+                {items.slice(10).map(({ href, label, icon: Icon }) => {
                     const active = pathname === href || (href !== '/' && pathname.startsWith(href));
                     return (
                         <Link
