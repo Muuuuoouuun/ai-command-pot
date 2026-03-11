@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
-import { cookies } from 'next/headers';
+import { supabaseServer } from '@/lib/supabase';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // Gemini API 초기화
@@ -14,19 +13,12 @@ export async function POST(req: Request) {
             return NextResponse.json({ error: '환경 변수에 GEMINI_API_KEY가 설정되지 않았습니다.' }, { status: 500 });
         }
 
-        // 1. Supabase 인증 확인 (현재 사용자 가져오기)
-        const supabase = createRouteHandlerClient({ cookies });
-        const { data: { session } } = await supabase.auth.getSession();
-
-        // 개발/테스트 편의를 위해 임시로 로그인 안한 경우 테스트용 ID 사용 허용 (실제 운영 시 제거 권장)
-        const userId = session?.user?.id || 'TEST_USER_ID';
-
-        if (!session) {
-            console.warn('⚠️ 로그인되지 않은 상태에서 요청 발생. 테스트용 모드로 진행합니다.');
-        }
+        // 1. Supabase 연결 (서비스 롤)
+        const supabase = supabaseServer();
+        const userId = process.env.DEMO_OWNER_ID || 'TEST_USER_ID';
 
         // 2. 남은 토큰 할당량(구독 상태) 확인
-        const { data: subscription, error: subError } = await supabase
+        const { data: subscription } = await supabase
             .from('user_subscriptions')
             .select('tokens_remaining, plan_type')
             .eq('user_id', userId)
@@ -60,7 +52,7 @@ export async function POST(req: Request) {
         const newRemainingTokens = currentTokens - usedTokens;
 
         // 테이블이 생성되어 있다면 실제 차감을 적용
-        if (hasTable && session?.user?.id) {
+        if (hasTable && userId !== 'TEST_USER_ID') {
             await supabase
                 .from('user_subscriptions')
                 .update({ tokens_remaining: Math.max(0, newRemainingTokens) })
@@ -76,8 +68,9 @@ export async function POST(req: Request) {
             }
         });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error('Gemini API Error:', error);
-        return NextResponse.json({ error: error.message || '서버 오류가 발생했습니다.' }, { status: 500 });
+        const message = error instanceof Error ? error.message : '서버 오류가 발생했습니다.';
+        return NextResponse.json({ error: message }, { status: 500 });
     }
 }

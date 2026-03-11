@@ -1,11 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getOwner } from '@/lib/data';
 import { supabaseServer } from '@/lib/supabase';
+import { runClaudeAgent } from '@/lib/claude';
 
 type RunnerResult = {
   status: 'success' | 'failed';
   output: unknown;
   error: string | null;
+  cost_estimate?: number;
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -25,6 +27,51 @@ async function executeRun(agent: any, input: unknown): Promise<RunnerResult> {
       output: { raw: output },
       error: response.ok ? null : output
     };
+  }
+
+  if (agent.runner_type === 'claude') {
+    const key = process.env.ANTHROPIC_API_KEY;
+    if (!key) {
+      return {
+        status: 'success',
+        output: { mock: `[Demo] Claude agent "${agent.name}" would process: ${JSON.stringify(input)}` },
+        error: null
+      };
+    }
+
+    try {
+      const model = agent.config?.model || 'claude-opus-4-6';
+      const systemPrompt = agent.config?.system_prompt ||
+        `You are ${agent.name}. ${agent.description || 'Execute the given task and return structured results.'}`;
+
+      const result = await runClaudeAgent(
+        agent.name,
+        systemPrompt,
+        input,
+        model,
+        agent.config?.max_tokens || 4096
+      );
+
+      // Estimate cost: $5/1M input tokens, $25/1M output tokens for Opus 4.6
+      const inputCost = (result.inputTokens / 1_000_000) * 5;
+      const outputCost = (result.outputTokens / 1_000_000) * 25;
+
+      return {
+        status: 'success',
+        output: {
+          text: result.output,
+          usage: { input_tokens: result.inputTokens, output_tokens: result.outputTokens }
+        },
+        error: null,
+        cost_estimate: parseFloat((inputCost + outputCost).toFixed(6))
+      };
+    } catch (err) {
+      return {
+        status: 'failed',
+        output: null,
+        error: err instanceof Error ? err.message : 'Claude runner failed'
+      };
+    }
   }
 
   if (agent.runner_type === 'llm_call') {
@@ -47,7 +94,7 @@ async function executeRun(agent: any, input: unknown): Promise<RunnerResult> {
     };
   }
 
-  return { status: 'failed', output: null, error: 'Unsupported runner type' };
+  return { status: 'failed', output: null, error: `Unsupported runner type: ${agent.runner_type}` };
 }
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
@@ -65,7 +112,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   if (!agent) return NextResponse.json({ error: 'Agent not found' }, { status: 404 });
 
   const start = new Date();
-  const { data: run, error: runInsertError } = await sb.from('runs').insert({ owner_id: ownerId, agent_id: agent.id, status: 'running', started_at: start.toISOString(), input }).select('*').single();
+  const { data: run, error: runInsertError } = await sb
+    .from('runs')
+    .insert({ owner_id: ownerId, agent_id: agent.id, status: 'running', started_at: start.toISOString(), input })
+    .select('*')
+    .single();
   if (runInsertError || !run) return NextResponse.json({ error: runInsertError?.message ?? 'Run insert failed' }, { status: 400 });
 
   const result = await executeRun(agent, input);
@@ -77,7 +128,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     ended_at: end.toISOString(),
     duration_ms: duration,
     output: result.output,
-    error: result.error
+    error: result.error,
+    cost_estimate: result.cost_estimate ?? null
   }).eq('id', run.id).eq('owner_id', ownerId).select('*').single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });

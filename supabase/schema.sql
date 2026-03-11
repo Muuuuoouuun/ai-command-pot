@@ -146,12 +146,12 @@ create table if not exists automations (
   created_at timestamptz default now()
 );
 
--- Separate Policies for New Tables
-create policy "owner access memos" on memos for all using (owner_id = auth.uid()) with check (owner_id = auth.uid());
-create policy "owner access automations" on automations for all using (owner_id = auth.uid()) with check (owner_id = auth.uid());
-
+-- Enable RLS first, then create policies (correct order)
 alter table memos enable row level security;
 alter table automations enable row level security;
+
+create policy "owner access memos" on memos for all using (owner_id = auth.uid()) with check (owner_id = auth.uid());
+create policy "owner access automations" on automations for all using (owner_id = auth.uid()) with check (owner_id = auth.uid());
 
 -- New Indexes
 create index if not exists idx_memos_owner_created on memos(owner_id, created_at desc);
