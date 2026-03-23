@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getOwner } from '@/lib/data';
 import { supabaseServer } from '@/lib/supabase';
-import { runClaudeAgent } from '@/lib/claude';
+import { runClaudeAgent, runClaudeAgentWithMcp } from '@/lib/claude';
+import { McpHttpClient } from '@/lib/mcp-client';
 
 type RunnerResult = {
   status: 'success' | 'failed';
@@ -11,7 +12,7 @@ type RunnerResult = {
 };
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function executeRun(agent: any, input: unknown): Promise<RunnerResult> {
+async function executeRun(agent: any, input: unknown, sb: ReturnType<typeof supabaseServer>, ownerId: string): Promise<RunnerResult> {
   if (agent.runner_type === 'webhook') {
     const webhookUrl = agent.config?.webhook_url;
     if (!webhookUrl) return { status: 'failed', output: null, error: 'Missing webhook_url in agent config' };
@@ -43,14 +44,31 @@ async function executeRun(agent: any, input: unknown): Promise<RunnerResult> {
       const model = agent.config?.model || 'claude-opus-4-6';
       const systemPrompt = agent.config?.system_prompt ||
         `You are ${agent.name}. ${agent.description || 'Execute the given task and return structured results.'}`;
+      const maxTokens: number = agent.config?.max_tokens || 4096;
 
-      const result = await runClaudeAgent(
-        agent.name,
-        systemPrompt,
-        input,
-        model,
-        agent.config?.max_tokens || 4096
-      );
+      // If the agent has mcp_server_ids configured, wire up HTTP/SSE MCP clients
+      const mcpServerIds: string[] = Array.isArray(agent.config?.mcp_server_ids)
+        ? (agent.config.mcp_server_ids as string[])
+        : [];
+
+      let result: { output: string; inputTokens: number; outputTokens: number };
+
+      if (mcpServerIds.length > 0) {
+        const { data: mcpServers } = await sb
+          .from('mcp_servers')
+          .select('id, endpoint_url, transport')
+          .in('id', mcpServerIds)
+          .eq('owner_id', ownerId)
+          .eq('is_active', true);
+
+        const mcpClients = (mcpServers ?? [])
+          .filter(s => (s.transport === 'http' || s.transport === 'sse') && s.endpoint_url)
+          .map(s => new McpHttpClient(s.endpoint_url as string));
+
+        result = await runClaudeAgentWithMcp(agent.name, systemPrompt, input, mcpClients, model, maxTokens);
+      } else {
+        result = await runClaudeAgent(agent.name, systemPrompt, input, model, maxTokens);
+      }
 
       // Estimate cost: $5/1M input tokens, $25/1M output tokens for Opus 4.6
       const inputCost = (result.inputTokens / 1_000_000) * 5;
@@ -119,7 +137,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     .single();
   if (runInsertError || !run) return NextResponse.json({ error: runInsertError?.message ?? 'Run insert failed' }, { status: 400 });
 
-  const result = await executeRun(agent, input);
+  const result = await executeRun(agent, input, sb, ownerId);
   const end = new Date();
   const duration = end.getTime() - start.getTime();
 

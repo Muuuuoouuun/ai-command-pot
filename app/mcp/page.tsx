@@ -5,7 +5,7 @@ import { SectionTitle } from '@/components/section-title';
 import {
   Plus, Download, Trash2, ToggleLeft, ToggleRight,
   AlertTriangle, Copy, Check, ExternalLink, ChevronDown, ChevronUp,
-  Plug, FileCode2, Globe
+  Plug, FileCode2, Globe, Wifi, WifiOff, Loader2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -464,6 +464,8 @@ function AddServerModal({
 
 // ── Server card ───────────────────────────────────────────────────────────────
 
+type TestResult = { ok: boolean; message: string; tools?: string[]; transport?: string };
+
 function ServerCard({
   server,
   onToggle,
@@ -474,7 +476,23 @@ function ServerCard({
   onDelete: (id: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [testResult, setTestResult] = useState<TestResult | null>(null);
   const template = TEMPLATES.find(t => t.type === server.server_type);
+
+  const testConnection = async () => {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const res = await fetch(`/api/mcp/${server.id}/test`, { method: 'POST' });
+      const json: TestResult = await res.json();
+      setTestResult(json);
+    } catch {
+      setTestResult({ ok: false, message: '요청 실패' });
+    } finally {
+      setTesting(false);
+    }
+  };
 
   const configSnippet = server.transport === 'stdio'
     ? JSON.stringify({
@@ -521,6 +539,20 @@ function ServerCard({
 
         <div className="flex items-center gap-1 flex-shrink-0">
           <button
+            onClick={testConnection}
+            disabled={testing}
+            className="p-1.5 rounded-lg text-ink/30 hover:text-blue-500 hover:bg-blue-50 disabled:opacity-40"
+            title="연결 테스트"
+          >
+            {testing
+              ? <Loader2 size={14} className="animate-spin" />
+              : testResult
+                ? testResult.ok
+                  ? <Wifi size={14} className="text-green-500" />
+                  : <WifiOff size={14} className="text-red-400" />
+                : <Wifi size={14} />}
+          </button>
+          <button
             onClick={() => setExpanded(e => !e)}
             className="p-1.5 rounded-lg text-ink/30 hover:text-ink hover:bg-ink/5"
           >
@@ -544,6 +576,28 @@ function ServerCard({
           </button>
         </div>
       </div>
+
+      {/* Test result banner */}
+      {testResult && (
+        <div className={cn(
+          'mx-4 mb-0 mt-0 px-3 py-2 rounded-xl text-xs flex items-start gap-2',
+          testResult.ok ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+        )}>
+          {testResult.ok
+            ? <Wifi size={12} className="flex-shrink-0 mt-0.5" />
+            : <WifiOff size={12} className="flex-shrink-0 mt-0.5" />}
+          <div>
+            <span>{testResult.message}</span>
+            {testResult.ok && testResult.tools && testResult.tools.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-1">
+                {testResult.tools.map(t => (
+                  <code key={t} className="bg-green-100 text-green-800 px-1 rounded text-[10px]">{t}</code>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Expanded: config snippet + env checklist */}
       {expanded && (
@@ -781,7 +835,7 @@ export default function MCPPage() {
       <div className="paper-card p-5 space-y-4">
         <h3 className="font-semibold text-sm text-ink">Claude에 MCP 서버 연결하기</h3>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 text-xs">
           {[
             {
               step: '1',
@@ -799,10 +853,17 @@ export default function MCPPage() {
             },
             {
               step: '3',
-              title: 'Config 내보내기',
-              desc: 'Export 버튼으로 claude_desktop_config.json을 다운로드해 Claude Desktop에 적용합니다.',
+              title: 'Claude Desktop 연결',
+              desc: 'Export → claude_desktop_config.json 다운로드 후 ~/Library/Application Support/Claude/에 저장하면 Claude Desktop에서 즉시 사용 가능합니다.',
               action: null,
               actionLabel: null,
+            },
+            {
+              step: '4',
+              title: '인앱 에이전트 연결',
+              desc: '에이전트 config에 mcp_server_ids 배열을 추가하면 HTTP/SSE 서버 도구가 Claude에 자동 주입됩니다. Wifi 버튼으로 연결을 먼저 테스트하세요.',
+              action: '/agents-map',
+              actionLabel: 'Agent Map →',
             },
           ].map(({ step, title, desc, action, actionLabel }) => (
             <div key={step} className="flex gap-3">
