@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { encryptSecret } from '@/lib/crypto';
 import { getOwner } from '@/lib/data';

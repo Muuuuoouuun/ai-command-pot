@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { NextResponse } from 'next/server';
 import { getOwner } from '@/lib/data';
 import { supabaseServer } from '@/lib/supabase';
