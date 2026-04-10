@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SectionTitle } from '@/components/section-title';
-import { Bot, Wifi, WifiOff, RefreshCw, X, Clock, Activity, AlertTriangle } from 'lucide-react';
+import { Bot, Wifi, WifiOff, RefreshCw, X, Clock, Activity, AlertTriangle, Play, CheckCircle2, XCircle, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 type AgentData = {
@@ -11,6 +11,7 @@ type AgentData = {
   name: string;
   category: string;
   description: string;
+  runner_type: string;
   status: 'idle' | 'working' | 'waiting' | 'error' | 'offline';
   current_task: string | null;
   last_activity: string | null;
@@ -112,8 +113,32 @@ function AgentCharacter({
   );
 }
 
+type RunResult = { status: string; output?: { text?: string } | null; error?: string | null };
+
 function AgentDetailPanel({ agent, onClose }: { agent: AgentData; onClose: () => void }) {
   const cfg = STATUS_CONFIG[agent.status];
+  const [prompt, setPrompt] = useState('');
+  const [running, setRunning] = useState(false);
+  const [runResult, setRunResult] = useState<RunResult | null>(null);
+
+  const runAgent = async () => {
+    if (!prompt.trim()) return;
+    setRunning(true);
+    setRunResult(null);
+    try {
+      const res = await fetch(`/api/agents/${agent.id}/run`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ input: { prompt } }),
+      });
+      const json: RunResult = await res.json();
+      setRunResult(json);
+    } catch (err) {
+      setRunResult({ status: 'error', error: err instanceof Error ? err.message : 'Request failed' });
+    } finally {
+      setRunning(false);
+    }
+  };
 
   return (
     <motion.div
@@ -167,6 +192,48 @@ function AgentDetailPanel({ agent, onClose }: { agent: AgentData; onClose: () =>
             <div className="text-sm text-ink/60">{new Date(agent.last_activity).toLocaleString()}</div>
           </div>
         )}
+
+        {/* Run Now */}
+        <div className="border-t border-line pt-3 space-y-2">
+          <div className="text-xs font-semibold text-ink/40 uppercase tracking-wider flex items-center gap-1">
+            <Play size={10} /> Run Now
+            <span className="font-normal normal-case ml-1 text-ink/30">({agent.runner_type})</span>
+          </div>
+          <textarea
+            value={prompt}
+            onChange={e => setPrompt(e.target.value)}
+            placeholder="프롬프트 또는 JSON 입력…"
+            rows={3}
+            className="w-full text-xs px-3 py-2 rounded-xl border border-line bg-white/80 focus:outline-none focus:ring-2 focus:ring-ink/10 resize-none"
+          />
+          <button
+            onClick={runAgent}
+            disabled={running || !prompt.trim()}
+            className="w-full py-1.5 text-xs rounded-lg bg-ink text-white hover:bg-ink/90 disabled:opacity-40 flex items-center justify-center gap-1.5 transition-all"
+          >
+            {running ? <><Loader2 size={12} className="animate-spin" /> 실행 중…</> : <><Play size={12} /> 실행</>}
+          </button>
+          {runResult && (
+            <div className={cn(
+              'text-[11px] rounded-xl p-2.5 border font-mono break-all',
+              runResult.status === 'success' || runResult.status === 'completed'
+                ? 'bg-green-50 border-green-200 text-green-800'
+                : 'bg-red-50 border-red-200 text-red-700'
+            )}>
+              <div className="flex items-center gap-1 mb-1 font-semibold not-italic">
+                {runResult.status === 'success' || runResult.status === 'completed'
+                  ? <CheckCircle2 size={11} />
+                  : <XCircle size={11} />}
+                {runResult.status}
+              </div>
+              {runResult.output?.text
+                ? <p className="whitespace-pre-wrap">{runResult.output.text.slice(0, 400)}{runResult.output.text.length > 400 ? '…' : ''}</p>
+                : runResult.error
+                ? <p>{runResult.error}</p>
+                : null}
+            </div>
+          )}
+        </div>
       </div>
     </motion.div>
   );

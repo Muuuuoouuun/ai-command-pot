@@ -48,6 +48,7 @@ async function executeRun(agent: any, input: unknown, sb: ReturnType<typeof supa
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(input),
+      signal: AbortSignal.timeout(30_000),
     });
     const output = await response.text();
     return {
@@ -131,6 +132,7 @@ async function executeRun(agent: any, input: unknown, sb: ReturnType<typeof supa
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${key}` },
         body: JSON.stringify({ model, messages, max_tokens: agent.config?.max_tokens || 4096 }),
+        signal: AbortSignal.timeout(60_000),
       });
 
       const json = await response.json() as {
@@ -182,6 +184,7 @@ async function executeRun(agent: any, input: unknown, sb: ReturnType<typeof supa
           ...(systemPrompt ? { systemInstruction: { parts: [{ text: systemPrompt }] } } : {}),
           generationConfig: { maxOutputTokens: agent.config?.max_tokens || 4096 },
         }),
+        signal: AbortSignal.timeout(60_000),
       });
 
       const json = await response.json() as {
@@ -231,6 +234,7 @@ async function executeRun(agent: any, input: unknown, sb: ReturnType<typeof supa
         method: agent.config?.method || 'POST',
         headers,
         body: JSON.stringify(input),
+        signal: AbortSignal.timeout(30_000),
       });
 
       const contentType = response.headers.get('content-type') ?? '';

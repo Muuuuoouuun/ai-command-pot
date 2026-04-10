@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { SectionTitle } from '@/components/section-title';
-import { BarChart3, TrendingUp, Zap, AlertCircle, DollarSign, RefreshCw, AlertTriangle } from 'lucide-react';
+import { BarChart3, TrendingUp, Zap, AlertCircle, DollarSign, RefreshCw, AlertTriangle, Pencil, X } from 'lucide-react';
 
 type ServiceStat = { calls: number; cost: number; tokens: number; errors: number };
 type DailyRow = {
@@ -50,6 +50,11 @@ export default function AIUsagePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  type BudgetEdit = { service: string; budget_usd: number; alert_threshold_percent: number; budget_type: 'monthly' | 'daily' };
+  const [editBudget, setEditBudget] = useState<BudgetEdit | null>(null);
+  const [savingBudget, setSavingBudget] = useState(false);
+  const [budgetError, setBudgetError] = useState<string | null>(null);
+
   const fetchData = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
     setError(null);
@@ -65,6 +70,29 @@ export default function AIUsagePage() {
       setLoading(false);
     }
   }, [period]);
+
+  const saveBudget = async () => {
+    if (!editBudget) return;
+    setSavingBudget(true);
+    setBudgetError(null);
+    try {
+      const res = await fetch('/api/ai-usage/budgets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editBudget),
+      });
+      if (!res.ok) {
+        const j = await res.json();
+        throw new Error(j.error ?? `HTTP ${res.status}`);
+      }
+      setEditBudget(null);
+      fetchData();
+    } catch (e: unknown) {
+      setBudgetError(e instanceof Error ? e.message : 'Failed to save');
+    } finally {
+      setSavingBudget(false);
+    }
+  };
 
   // AbortController: cancel in-flight request when period changes
   useEffect(() => {
@@ -178,11 +206,19 @@ export default function AIUsagePage() {
                     </div>
                   )}
 
-                  {budgetPct !== null && (
+                  {budgetPct !== null ? (
                     <div>
                       <div className="flex justify-between text-xs text-ink/40 mb-1">
                         <span>Monthly Budget</span>
-                        <span>{budgetPct.toFixed(0)}%</span>
+                        <div className="flex items-center gap-1">
+                          <span>{budgetPct.toFixed(0)}%</span>
+                          <button
+                            onClick={() => setEditBudget({ service, budget_usd: budget!.budget_usd, alert_threshold_percent: budget!.alert_threshold_percent, budget_type: 'monthly' })}
+                            className="p-0.5 rounded hover:bg-ink/10 text-ink/30 hover:text-ink transition-colors"
+                          >
+                            <Pencil size={10} />
+                          </button>
+                        </div>
                       </div>
                       <div className="h-1.5 bg-ink/10 rounded-full overflow-hidden">
                         <div
@@ -191,6 +227,13 @@ export default function AIUsagePage() {
                         />
                       </div>
                     </div>
+                  ) : (
+                    <button
+                      onClick={() => setEditBudget({ service, budget_usd: 10, alert_threshold_percent: 80, budget_type: 'monthly' })}
+                      className="text-xs text-ink/30 hover:text-ink flex items-center gap-1 transition-colors"
+                    >
+                      <Pencil size={10} /> 예산 설정
+                    </button>
                   )}
                 </div>
               );
@@ -240,6 +283,88 @@ export default function AIUsagePage() {
                 ));
               })()}
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Budget edit modal */}
+      {editBudget && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setEditBudget(null)}>
+          <div className="bg-paper rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between">
+              <h2 className="font-serif font-bold text-ink capitalize">Budget — {editBudget.service}</h2>
+              <button onClick={() => setEditBudget(null)} className="text-ink/30 hover:text-ink text-xl leading-none">
+                <X size={18} />
+              </button>
+            </div>
+
+            {budgetError && (
+              <div className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-xl px-3 py-2 flex items-center gap-2">
+                <AlertTriangle size={12} /> {budgetError}
+              </div>
+            )}
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-semibold text-ink/50 uppercase tracking-wider mb-1.5 block">
+                  Budget Type
+                </label>
+                <div className="flex gap-2">
+                  {(['monthly', 'daily'] as const).map(t => (
+                    <button
+                      key={t}
+                      onClick={() => setEditBudget(b => b ? { ...b, budget_type: t } : null)}
+                      className={`flex-1 py-1.5 text-xs rounded-lg font-medium transition-all ${editBudget.budget_type === t ? 'bg-ink text-white' : 'bg-ink/5 text-ink/60 hover:bg-ink/10'}`}
+                    >
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-ink/50 uppercase tracking-wider mb-1.5 block">
+                  Budget (USD)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ink/40 text-sm">$</span>
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    value={editBudget.budget_usd}
+                    onChange={e => setEditBudget(b => b ? { ...b, budget_usd: parseFloat(e.target.value) || 0 } : null)}
+                    className="w-full pl-7 pr-3 py-2 text-sm rounded-xl border border-line bg-white focus:outline-none focus:ring-2 focus:ring-ink/10"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-semibold text-ink/50 uppercase tracking-wider mb-1.5 block">
+                  Alert Threshold — {editBudget.alert_threshold_percent}%
+                </label>
+                <input
+                  type="range"
+                  min={50}
+                  max={100}
+                  step={5}
+                  value={editBudget.alert_threshold_percent}
+                  onChange={e => setEditBudget(b => b ? { ...b, alert_threshold_percent: parseInt(e.target.value) } : null)}
+                  className="w-full accent-ink"
+                />
+                <div className="flex justify-between text-[10px] text-ink/30 mt-0.5">
+                  <span>50%</span><span>75%</span><span>100%</span>
+                </div>
+              </div>
+            </div>
+
+            <button
+              onClick={saveBudget}
+              disabled={savingBudget || editBudget.budget_usd <= 0}
+              className="w-full py-2 text-sm rounded-xl bg-ink text-white hover:bg-ink/90 disabled:opacity-50 transition-all"
+            >
+              {savingBudget ? '저장 중…' : '저장'}
+            </button>
           </div>
         </div>
       )}

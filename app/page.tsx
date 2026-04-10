@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { MotionCard } from '@/components/motion-card';
 import { SectionTitle } from '@/components/section-title';
-import { formatCurrency, formatDate } from '@/lib/utils';
+import { formatCurrency, formatDate, timeAgo } from '@/lib/utils';
 import { getAgents, getDashboardConnection, getRuns, getSubscriptions } from '@/lib/data';
 import { SystemNotes } from '@/components/system-notes';
 import { DataConnectionBadge } from '@/components/data-connection-badge';
@@ -57,13 +57,19 @@ export default async function HomePage({ searchParams }: { searchParams?: { days
           { label: 'Subscriptions', value: connection.counts.subscriptions, href: '/subscriptions' },
           { label: 'Agents', value: connection.counts.agents, href: '/launch' },
           { label: 'Vault Keys', value: connection.counts.keys, href: '/vault' },
-          { label: 'Latest Run', value: connection.latestRunAt ? formatDate(connection.latestRunAt) : '—', href: '/logs' }
+          { label: 'Latest Run', value: connection.latestRunAt ? timeAgo(connection.latestRunAt) : '—', href: '/logs' }
         ]}
       />
 
       <section className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        {[['Monthly Spend', formatCurrency(total)], ['Renewals Soon', renewals.length], ['Runs Today', runsToday]].map(([label, value]) => (
-          <MotionCard key={String(label)}><div className="p-4"><p className="text-xs text-ink/60">{label}</p><p className="mt-2 font-serif text-2xl">{value}</p></div></MotionCard>
+        {[
+          { label: 'Monthly Spend', value: formatCurrency(total), href: '/subscriptions' },
+          { label: 'Renewals Soon', value: String(renewals.length), href: `/?days=${days}` },
+          { label: 'Runs Today', value: String(runsToday), href: '/logs' },
+        ].map(({ label, value, href }) => (
+          <Link key={label} href={href}>
+            <MotionCard><div className="p-4"><p className="text-xs text-ink/60">{label}</p><p className="mt-2 font-serif text-2xl">{value}</p></div></MotionCard>
+          </Link>
         ))}
       </section>
 
@@ -75,27 +81,42 @@ export default async function HomePage({ searchParams }: { searchParams?: { days
             <Link href="/?days=14" className={`rounded-full border px-3 py-1 ${days === 14 ? 'bg-ink text-paper' : 'border-line'}`}>D-14</Link>
           </div>
         </div>
-        {renewals.map((s) => (
-          <div key={s.id} className="paper-card flex items-center justify-between p-3 text-sm">
-            <div><p>{s.service_name}</p><p className="text-xs text-ink/60">{formatDate(s.renewal_date)}</p></div>
+        {renewals.length === 0 ? (
+          <p className="text-sm text-ink/40 py-3 pl-1">이 기간에 만료 예정인 구독이 없습니다.</p>
+        ) : renewals.map(s => (
+          <Link key={s.id} href={`/subscriptions/${s.id}`} className="paper-card flex items-center justify-between p-3 text-sm hover:shadow-sm transition-all">
+            <div><p>{s.service_name}</p><p className="text-xs text-ink/60">{formatDate(s.renewal_date)} · D-{s.daysLeft}</p></div>
             <p>{formatCurrency(Number(s.monthly_cost || 0), s.currency)}</p>
-          </div>
+          </Link>
         ))}
       </section>
 
       <section className="space-y-2">
         <h2 className="font-serif text-xl">Favorite Launch</h2>
-        <div className="grid grid-cols-2 gap-3">{favs.map((agent) => <Link key={agent.id} href="/launch" className="paper-card p-3 text-sm">{agent.name}</Link>)}</div>
+        {favs.length === 0 ? (
+          <Link href="/launch" className="paper-card p-4 text-sm text-center text-ink/40 border-dashed block hover:bg-ink/5 transition-colors">
+            즐겨찾기 에이전트 없음 → AI Launch에서 ★ 표시하세요
+          </Link>
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            {favs.map(agent => <Link key={agent.id} href="/launch" className="paper-card p-3 text-sm hover:shadow-sm transition-all">{agent.name}</Link>)}
+          </div>
+        )}
       </section>
 
       <SystemNotes />
 
       <section className="space-y-2">
         <h2 className="font-serif text-xl">Recent Activity</h2>
-        {runs.map((run) => (
-          <Link key={run.id} href={`/logs/${run.id}`} className="paper-card flex items-center justify-between p-3 text-sm">
+        {runs.length === 0 ? (
+          <p className="text-sm text-ink/40 py-3 pl-1">최근 실행 기록이 없습니다.</p>
+        ) : runs.map(run => (
+          <Link key={run.id} href={`/logs/${run.id}`} className="paper-card flex items-center justify-between p-3 text-sm hover:shadow-sm transition-all">
             <p>{run.agents?.name ?? 'Agent'}</p>
-            <p><span className={`rounded-full px-2 py-0.5 text-xs ${run.status === 'success' ? 'bg-green-100' : run.status === 'failed' ? 'bg-red-100' : 'bg-yellow-100'}`}>{run.status}</span> · {run.duration_ms ?? 0}ms</p>
+            <p>
+              <span className={`rounded-full px-2 py-0.5 text-xs mr-2 ${run.status === 'success' ? 'bg-green-100 text-green-700' : run.status === 'failed' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'}`}>{run.status}</span>
+              <span className="text-ink/40 text-xs">{timeAgo(run.started_at)}</span>
+            </p>
           </Link>
         ))}
       </section>

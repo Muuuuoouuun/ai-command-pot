@@ -9,6 +9,7 @@ type AgentRow = {
   category: string;
   description: string;
   favorite: boolean;
+  runner_type: string;
   workspace_position: unknown;
   avatar_config: unknown;
   visual_status: string;
@@ -27,7 +28,7 @@ export async function GET() {
 
   const { data: agents, error } = await sb
     .from('agents')
-    .select('id, name, category, description, favorite, workspace_position, avatar_config, visual_status')
+    .select('id, name, category, description, favorite, runner_type, workspace_position, avatar_config, visual_status')
     .eq('owner_id', owner);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -58,6 +59,7 @@ export async function GET() {
     status: activities[a.id]?.status ?? a.visual_status ?? 'offline',
     current_task: activities[a.id]?.current_task ?? null,
     last_activity: activities[a.id]?.started_at ?? null,
+    runner_type: a.runner_type ?? 'claude',
   }));
 
   return NextResponse.json({ data: result });
